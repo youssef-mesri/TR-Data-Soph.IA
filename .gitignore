@@ -6,7 +6,6 @@
 *.nav
 *.snm
 *.vrb
-*.pdf
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
