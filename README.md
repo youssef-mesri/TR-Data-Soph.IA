@@ -25,4 +25,4 @@ Ouvrir les notebooks dans Jupyter ou VSCode.
 - Les images générées par les TPs sont dans `lectures/`.
 
 ## Auteur
-Mastère Spécialisé HPC-AI
+Youssef MESRI - MINES Paris - PSL
