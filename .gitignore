@@ -1,0 +1,30 @@
+# LaTeX intermediate and output files
+*.aux
+*.log
+*.out
+*.toc
+*.nav
+*.snm
+*.vrb
+*.pdf
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# VSCode settings
+.vscode/
+
+# Conda environment
+.conda/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other
+*.bak
+*.tmp

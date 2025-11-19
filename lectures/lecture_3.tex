@@ -1,0 +1,477 @@
+\documentclass{beamer}
+
+% Thème Beamer
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+% Packages utiles
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+% Métadonnées
+\title{Géométrie des Données et Apprentissage sur Variétés}
+\subtitle{Module 1 -- Introduction enrichie avec exercices}
+\author{Mastère Spécialisé HPC-AI}
+\date{\today}
+
+\begin{document}
+
+% Page de titre
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Sommaire
+\begin{frame}{Plan}
+  \tableofcontents
+\end{frame}
+
+
+%================= MODULE 3 =================
+\section{Module 3 : Motivation et limites des modèles classiques}
+
+\begin{frame}{Module 3 : plan}
+\begin{itemize}
+  \item Limites des modèles classiques : pas différentiables / scalables
+  \item Principe du Message passing
+  \item GCN, GAT : mécanismes principaux
+  \item Applications IA géométrique :
+  \begin{itemize}
+      \item Physique (simulation moléculaire)
+      \item Biologie (protéines)
+      \item IA générative (diffusion sur variétés)
+  \end{itemize}
+  \item Outils Python : PyTorch Geometric, DGL, Spektral
+  \item TP : Mini-GNN avec PyTorch Geometric ou Deep Graph Library. 
+\end{itemize}
+\end{frame}
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : pourquoi le deep learning géométrique ?}
+\begin{itemize}
+  \item Les données modernes sont souvent non-euclidiennes : graphes, maillages, variétés
+  \item Les modèles classiques (MLP, CNN) supposent une structure régulière :
+    \begin{itemize}
+      \item vecteurs fixes ou images 2D
+      \item pas adaptés à la topologie complexe
+    \end{itemize}
+  \item Objectif : apprendre des représentations sur des structures géométriques
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Limites des modèles classiques =================
+\begin{frame}{Limites des modèles classiques}
+\begin{itemize}
+  \item Pas différentiables sur graphes/variétés
+  \item Difficulté à capturer relations locales/globales non régulières
+  \item Scalabilité limitée à des structures complexes
+\end{itemize}
+
+\begin{center}
+\texttt{
+Vecteurs fixes / images 2D \\
+       | \\
+  Pas de propagation entre voisins arbitraires \\
+       | \\
+Graphe ou variété → besoin de modèles géométriques
+}
+\end{center}
+\end{frame}
+
+%================= Slide 3 : Comparatif =================
+\begin{frame}{Comparatif : classique vs géométrique}
+\begin{itemize}
+  \item MLP/CNN :
+    \begin{itemize}
+      \item Entrée : vecteurs fixes / pixels
+      \item Convolutions régulières
+      \item Limité aux grilles Euclidiennes
+    \end{itemize}
+  \item Deep Learning Géométrique :
+    \begin{itemize}
+      \item Entrée : graphes, points sur variété
+      \item Message passing / convolutions sur graphes
+      \item Exploite topologie et voisinage local
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Principe du message passing =================
+\begin{frame}{Message Passing : idée générale}
+\begin{itemize}
+  \item Chaque nœud met à jour sa représentation en agrégeant les informations de ses voisins.
+  \item Formule générale :
+  \[
+    h_i^{(l+1)} = \text{UPDATE}\Big(h_i^{(l)}, \text{AGGREGATE}(\{h_j^{(l)} : j \in \mathcal{N}(i)\})\Big)
+  \]
+  \item Trois composantes clés :
+  \begin{enumerate}
+    \item \textbf{Message} : $m_{ij} = \phi(h_i^{(l)}, h_j^{(l)}, e_{ij})$
+    \item \textbf{Agrégation} : somme/moyenne/max des messages
+    \item \textbf{Mise à jour} : $h_i^{(l+1)} = \psi(h_i^{(l)}, m_i)$
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Illustration schématique =================
+\begin{frame}{Illustration : propagation de messages}
+\begin{center}
+\texttt{
+      h2       h3 \\
+       \\      / \\
+        \\    /   \\
+         [ h1 ]  ← reçoit messages de ses voisins \\
+        /    \\
+      h4      h5
+}
+\end{center}
+\begin{itemize}
+  \item $h_1^{(l+1)}$ dépend de $h_1^{(l)}$ et de l’agrégation des messages venant de $h_2,h_3,h_4,h_5$.
+  \item Propagation couche par couche : information diffuse sur tout le graphe.
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Exemple concret =================
+\begin{frame}{Exemple simple}
+\begin{itemize}
+  \item Noeuds = personnes, attributs = âge initial
+  \item Agrégation = moyenne des âges des voisins
+  \item Mise à jour = moyenne pondérée de son âge et de ses voisins
+\end{itemize}
+\[
+  h_i^{(l+1)} = \tfrac{1}{2} h_i^{(l)} + \tfrac{1}{2} \frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} h_j^{(l)}
+\]
+\begin{itemize}
+  \item Après plusieurs itérations, chaque nœud possède une représentation influencée par ses voisins proches et éloignés.
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Graph Convolutional Network =================
+\begin{frame}{Graph Convolutional Network (GCN)}
+\begin{itemize}
+  \item Formule de base (Kipf & Welling 2017) :
+  \[
+    H^{(l+1)} = \sigma \Big( \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2} H^{(l)} W^{(l)} \Big)
+  \]
+  où :
+  \begin{itemize}
+    \item $\tilde{A} = A + I$ : matrice d’adjacence avec boucles
+    \item $\tilde{D}$ : matrice diagonale des degrés
+    \item $H^{(l)}$ : représentations des nœuds à la couche $l$
+    \item $W^{(l)}$ : poids entraînables
+  \end{itemize}
+  \item Normalisation symétrique évite l’explosion/vanishing.
+  \item Interprétation : moyenne pondérée des voisins + transformation linéaire.
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Exemple intuitif GCN =================
+\begin{frame}{Exemple intuitif : GCN}
+\begin{itemize}
+  \item Imagine un graphe de documents liés par des citations.
+  \item Chaque nœud = vecteur TF-IDF d’un document.
+  \item Un GCN agrège les vecteurs des voisins → information contextuelle.
+  \item Après plusieurs couches : un document est représenté par son contenu \textbf{et} celui des documents proches.
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Graph Attention Network (GAT) =================
+\begin{frame}{Graph Attention Network (GAT)}
+\begin{itemize}
+  \item Chaque voisin n’a pas la même importance !
+  \item Coefficients d’attention :
+  \[
+    \alpha_{ij} = \frac{ \exp \big( \text{LeakyReLU}(a^\top [W h_i \, \| \, W h_j]) \big) }
+                        { \sum_{k \in \mathcal{N}(i)} \exp \big( \text{LeakyReLU}(a^\top [W h_i \, \| \, W h_k]) \big) }
+  \]
+  \item Mise à jour :
+  \[
+    h_i^{(l+1)} = \sigma \left( \sum_{j \in \mathcal{N}(i)} \alpha_{ij} W h_j \right)
+  \]
+  \item Idée clé : pondération adaptative des voisins via mécanisme d’attention.
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Comparaison GCN vs GAT =================
+\begin{frame}{Comparaison GCN vs GAT}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{GCN}
+\begin{itemize}
+  \item Normalisation fixe (degré)
+  \item Voisins traités de façon uniforme
+  \item Simplicité, efficacité
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{GAT}
+\begin{itemize}
+  \item Pondération apprise entre voisins
+  \item Plus flexible et expressif
+  \item Coût de calcul plus élevé
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 11 : Deux approches =================
+\begin{frame}{Deux approches de la convolution sur graphe}
+\begin{itemize}
+  \item \textbf{Spectral} : basé sur la décomposition spectrale du Laplacien du graphe.
+  \item \textbf{Spatial} : basé sur l’agrégation locale des voisins (message passing).
+  \item Les deux approches sont équivalentes dans certains cas mais avec des compromis différents.
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Approche Spectrale =================
+\begin{frame}{Approche spectrale}
+\begin{itemize}
+  \item Laplacien normalisé : $L = I - D^{-1/2} A D^{-1/2}$
+  \item Décomposition en valeurs propres : $L = U \Lambda U^\top$
+  \item Convolution spectrale définie comme :
+  \[
+    g_\theta * x = U g_\theta(\Lambda) U^\top x
+  \]
+  où $g_\theta(\Lambda)$ agit comme un filtre en fréquence.
+  \item Avantage : interprétation en termes de fréquences du graphe.
+  \item Limites : coût élevé, dépend de la structure exacte du graphe.
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Approche Spatiale =================
+\begin{frame}{Approche spatiale}
+\begin{itemize}
+  \item Directement définir une agrégation des voisins :
+  \[
+    h_i^{(l+1)} = \sigma \Big( \sum_{j \in \mathcal{N}(i)} \frac{1}{c_{ij}} W h_j^{(l)} \Big)
+  \]
+  où $c_{ij}$ est un facteur de normalisation (ex: degré).
+  \item Interprétation : propagation de l’information comme dans le message passing.
+  \item Avantage : plus scalable, indépendant de la décomposition spectrale.
+  \item Limite : pas de contrôle explicite des fréquences.
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 : Comparaison Spectral vs Spatial =================
+\begin{frame}{Comparaison : spectral vs spatial}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{Spectral}
+\begin{itemize}
+  \item Basé sur le Laplacien
+  \item Analyse fréquentielle possible
+  \item Limité aux graphes fixes
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{Spatial}
+\begin{itemize}
+  \item Agrégation des voisins
+  \item Plus intuitif et local
+  \item Fonctionne pour graphes dynamiques
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 15 : Applications de l’IA géométrique =================
+\begin{frame}{Applications de l’IA géométrique}
+\begin{itemize}
+  \item Les GNN et méthodes géométriques sont appliquées à des domaines variés :
+  \begin{enumerate}
+    \item Physique computationnelle (simulation moléculaire, dynamique des particules)
+    \item Biologie structurale (protéines, réseaux de gènes)
+    \item IA générative (diffusion sur variétés et graphes)
+  \end{enumerate}
+  \item Atout : respect des symétries, invariances et topologie des données.
+\end{itemize}
+\end{frame}
+
+%================= Slide 16 : Physique =================
+\begin{frame}{Physique : simulation moléculaire}
+\begin{itemize}
+  \item Molécules représentées comme graphes (atomes = nœuds, liaisons = arêtes).
+  \item GNN utilisés pour approximer :
+  \begin{itemize}
+    \item Énergies de configuration
+    \item Forces interatomiques
+  \end{itemize}
+  \item Exemple : \textbf{SchNet}, \textbf{PhysNet}, modèles équivariants SE(3).
+  \item Applications : accélération de la dynamique moléculaire, découverte de matériaux.
+\end{itemize}
+\end{frame}
+
+%================= Slide 17 : Biologie =================
+\begin{frame}{Biologie : protéines et génomique}
+\begin{itemize}
+  \item Protéines = graphes 3D d’acides aminés.
+  \item GNN → prédiction de structure, fonction, interactions.
+  \item Exemples :
+  \begin{itemize}
+    \item \textbf{AlphaFold} : géométrie + réseaux de neurones
+    \item GNN pour réseaux de régulation génétique
+  \end{itemize}
+  \item Impact : compréhension des maladies, conception de médicaments.
+\end{itemize}
+\end{frame}
+
+%================= Slide 18 : IA générative =================
+\begin{frame}{IA générative sur variétés et graphes}
+\begin{itemize}
+  \item Génération de graphes structurés :
+  \begin{itemize}
+    \item Molécules valides
+    \item Réseaux complexes
+  \end{itemize}
+  \item Méthodes récentes :
+  \begin{itemize}
+    \item Diffusion sur graphes
+    \item Score-based generative models
+  \end{itemize}
+  \item Applications : design de médicaments, génération de maillages 3D, chimie computationnelle.
+\end{itemize}
+\end{frame}
+
+%================= Slide 19 : Synthèse applications =================
+\begin{frame}{Synthèse des applications}
+\begin{itemize}
+  \item \textbf{Physique} : simulation moléculaire, dynamique des particules
+  \item \textbf{Biologie} : prédiction de structure de protéines, réseaux biologiques
+  \item \textbf{IA générative} : création de graphes complexes, molécules, géométries
+\end{itemize}
+\vspace{0.3cm}
+\textbf{Message clé} : les GNN exploitent la structure géométrique et topologique → meilleures généralisations et applications pratiques.
+\end{frame}
+
+%================= Slide 20 : Outils Python =================
+\begin{frame}{Outils Python pour l’IA géométrique}
+\begin{itemize}
+  \item Frameworks populaires :
+  \begin{enumerate}
+    \item \textbf{PyTorch Geometric (PyG)} : bibliothèque modulaire basée sur PyTorch
+    \item \textbf{DGL (Deep Graph Library)} : efficace, multi-backend
+    \item \textbf{Spektral} : intégré à TensorFlow/Keras
+  \end{enumerate}
+  \item Fournissent des implémentations de GCN, GAT, GraphSAGE, DiffPool, etc.
+  \item Support de grands graphes et du GPU.
+\end{itemize}
+\end{frame}
+
+%================= Slide 21 : PyTorch Geometric =================
+\begin{frame}[fragile]{Exemple : PyTorch Geometric}
+\begin{verbatim}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv
+
+class GCN(torch.nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(in_dim, hid_dim)
+        self.conv2 = GCNConv(hid_dim, out_dim)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = self.conv2(x, edge_index)
+        return F.log_softmax(x, dim=1)
+\end{verbatim}
+\end{frame}
+
+%================= Slide 22 : DGL =================
+\begin{frame}[fragile]{Exemple : DGL (Deep Graph Library)}
+\begin{verbatim}
+import dgl
+import torch.nn as nn
+import torch.nn.functional as F
+from dgl.nn import GraphConv
+
+class GCN(nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim):
+        super().__init__()
+        self.conv1 = GraphConv(in_dim, hid_dim)
+        self.conv2 = GraphConv(hid_dim, out_dim)
+
+    def forward(self, g, features):
+        x = F.relu(self.conv1(g, features))
+        x = self.conv2(g, x)
+        return F.log_softmax(x, dim=1)
+\end{verbatim}
+\end{frame}
+
+%================= Slide 23 : Spektral =================
+\begin{frame}[fragile]{Exemple : Spektral (TensorFlow/Keras)}
+\begin{verbatim}
+import tensorflow as tf
+from spektral.layers import GCNConv
+
+class GCN(tf.keras.Model):
+    def __init__(self, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(16, activation="relu")
+        self.conv2 = GCNConv(out_dim, activation="softmax")
+
+    def call(self, inputs):
+        x, a = inputs
+        x = self.conv1([x, a])
+        return self.conv2([x, a])
+\end{verbatim}
+\end{frame}
+
+%================= Slide 24 : Synthèse outils =================
+\begin{frame}{Synthèse des outils Python}
+\begin{columns}
+\column{0.33\textwidth}
+\textbf{PyTorch Geometric}
+\begin{itemize}
+  \item Basé sur PyTorch
+  \item Grande communauté
+  \item Très flexible
+\end{itemize}
+
+\column{0.33\textwidth}
+\textbf{DGL}
+\begin{itemize}
+  \item Hautes performances
+  \item Multi-backend (PyTorch, MXNet, TensorFlow)
+  \item Optimisé pour graphes massifs
+\end{itemize}
+
+\column{0.33\textwidth}
+\textbf{Spektral}
+\begin{itemize}
+  \item Simple, basé sur Keras
+  \item Idéal pour prototypage rapide
+  \item Moins optimisé grands graphes
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 25 : Conclusion Module 3 =================
+\begin{frame}{Module 3 : Conclusion et perspectives}
+\begin{itemize}
+  \item Le deep learning géométrique permet de traiter :
+  \begin{itemize}
+    \item Données sur graphes, maillages et variétés
+    \item Relations locales et topologiques complexes
+  \end{itemize}
+  \item Techniques clés :
+  \begin{itemize}
+    \item Message passing et GNN (GCN, GAT)
+    \item Apprentissage spectral vs spatial
+    \item Exploitation de la structure pour IA générative et scientifique
+  \end{itemize}
+  \item Applications concrètes :
+  \begin{itemize}
+    \item Physique : simulation moléculaire
+    \item Biologie : protéines, réseaux génétiques
+    \item IA générative : diffusion sur graphes/variétés
+  \end{itemize}
+  \item Outils Python modernes pour implémenter facilement ces modèles :
+  \textbf{PyTorch Geometric, DGL, Spektral}
+  \item \textbf{Ouverture} : vers l’optimisation, l’IA générative avancée et l’intégration avec HPC.
+\end{itemize}
+\end{frame}
+
+\end{document}
+
+

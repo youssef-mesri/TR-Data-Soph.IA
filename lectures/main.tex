@@ -1,0 +1,3398 @@
+\documentclass{beamer}
+
+% Thème Beamer
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+% Packages utiles
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+% Métadonnées
+\title{Géométrie des Données et Apprentissage sur Variétés}
+\subtitle{Module 1 -- Introduction enrichie avec exercices}
+\author{Mastère Spécialisé HPC-AI}
+\date{\today}
+
+\begin{document}
+
+% Page de titre
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Sommaire
+\begin{frame}{Plan}
+  \tableofcontents
+\end{frame}
+
+
+%================= MODULE 1 =================
+\section{Module 1 : Introduction à la géométrie des données}
+
+\begin{frame}{Module 1 : plan}
+\begin{itemize}
+  \item Notion de données en haute dimension
+  \item Malédiction de la dimension et concentration de distances
+  \item Variétés et distances géodésiques
+  \item PCA
+  \item Isomap
+  \item Diffusion Maps
+  \item t-SNE
+  \item TP1 : Visualisation MNIST/Swiss Roll avec PCA, t-SNE, Isomap.
+  \item TP2: Comparaison PCA / Isomap / Diffusion maps (scikit-learn, PyGSP).
+\end{itemize}
+\end{frame}
+% ------------------ Section 1 ------------------
+\section{Motivations}
+
+\begin{frame}{Pourquoi une géométrie des données ?}
+  \begin{itemize}
+    \item Données modernes : images, sons, textes → espaces $\mathbb{R}^d$ avec $d \gg 1$.
+    \item Pourtant, elles possèdent souvent une \textbf{structure intrinsèque} de faible dimension.
+    \item \textbf{Idée clé} : les données sont souvent concentrées sur une \textbf{variété} de dimension intrinsèque $k \ll d$.
+    \item Exemple : images de chiffres manuscrits (784 dimensions) mais proches d’une \textit{variété} de dimension \textit{beaucoup} plus petite $\approx 10$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Explosion dimensionnelle : malédiction de la dimension}
+  \begin{itemize}
+    \item Lorsque la dimension $d$ augmente, le volume de l’espace croît \textbf{exponentiellement}.
+    \item Dans un cube unité $[0,1]^d$, la majeure partie du volume se concentre près des \textbf{bords}.
+    \item Les distances deviennent moins discriminantes :
+  \end{itemize}
+  \begin{block}{Illustration mathématique}
+    Soient $n$ points tirés uniformément dans $[0,1]^d$. On définit :
+    \begin{align*}
+      d_{\min} &= \min_{i \neq j} \|x_i - x_j\|, \\
+      d_{\max} &= \max_{i \neq j} \|x_i - x_j\|.
+    \end{align*}
+    On observe que :
+    \[
+      \lim_{d \to \infty} \frac{d_{\max} - d_{\min}}{d_{\min}} \to 0.
+    \]
+    \textbf{Conséquence :} toutes les distances deviennent presque égales !
+  \end{block}
+\end{frame}
+
+\begin{frame}{Explosion dimensionnelle : la malédiction de la dimension (suite)}
+\textbf{Intuition :} 
+\begin{itemize}
+  \item Quand la dimension $d$ augmente, les points aléatoires dans $[0,1]^d$ deviennent " équidistants ".  
+  \item La distance entre points se concentre autour d'une valeur moyenne. 
+  \item Cette perte de pouvoir discriminant est une des formes de la \textbf{malédiction de la dimension}. 
+\end{itemize}
+\end{frame}
+% ================= Section : Concentration - preuve =================
+\section{Concentration des distances : preuve par récurrence}
+
+\begin{frame}{Mise en place}
+  Deux points $x,y\in[0,1]^d$ i.i.d. uniformes. Définir la distance au carré :
+  \[
+    S_d := \|x-y\|_2^2 = \sum_{i=1}^d (x_i-y_i)^2 = \sum_{i=1}^d X_i,
+  \]
+  où $X_i$ sont i.i.d. copies de $X:=(U-V)^2$ avec $U,V\sim\mathcal U[0,1]$ indépendants.
+  On montrera : $\mathbb E[S_d]=d\mu$, $\operatorname{Var}(S_d)=d\sigma^2$ et la dispersion relative $\to 0$.
+\end{frame}
+
+\begin{frame}{Cas $d=1$ : loi de la différence et moments}
+  Posons $Z:=U-V$. Alors $Z\sim$ loi triangulaire sur $[-1,1]$ de densité $f_Z(z)=1-|z|$.  \\
+  Comme $X=Z^2$ :
+  \begin{align*}
+    \mathbb E[X] &= \int_{-1}^1 z^2 (1-|z|)\,dz 
+    = 2\int_0^1 z^2(1-z)\,dz = 2\Big(\tfrac{1}{3}-\tfrac{1}{4}\Big)=\tfrac{1}{6}, \\
+    \mathbb E[X^2] &= \int_{-1}^1 z^4 (1-|z|)\,dz 
+    = 2\int_0^1 z^4(1-z)\,dz = 2\Big(\tfrac{1}{5}-\tfrac{1}{6}\Big)=\tfrac{1}{15}.
+  \end{align*}
+  Donc $\mu=\mathbb E[X]=\tfrac{1}{6}$ et $\sigma^2=\operatorname{Var}(X)=\tfrac{1}{15}-\tfrac{1}{36}=\tfrac{7}{180}$.
+\end{frame}
+
+\begin{frame}{Vérification alternative (moments de l'uniforme)}
+  \small
+  Moments utiles pour $W\sim\mathcal U[0,1]$ : $\mathbb E[W]=\tfrac12,\ \mathbb E[W^2]=\tfrac13,\ \mathbb E[W^3]=\tfrac14,\ \mathbb E[W^4]=\tfrac15$.
+  Avec indépendance de $U,V$ :
+  \[\mathbb E[(U-V)^4]=2\mathbb E[U^4]-4\mathbb E[U^3]\mathbb E[V]+6\mathbb E[U^2]\mathbb E[V^2]-4\mathbb E[U]\mathbb E[V^3]=\tfrac{1}{15}.\]
+  On retrouve donc $\mathbb E[X^2]=\tfrac{1}{15}$ et $\operatorname{Var}(X)=\tfrac{7}{180}$.
+\end{frame}
+
+\begin{frame}{Étape de récurrence (somme de i.i.d.)}
+  Supposer vrai pour $d$ : $\mathbb E[S_d]=d\mu$, $\operatorname{Var}(S_d)=d\sigma^2$. Pour $d+1$ :
+  \[
+    S_{d+1}=S_d+X_{d+1} \Rightarrow \mathbb E[S_{d+1}]=(d+1)\mu,\quad \operatorname{Var}(S_{d+1})=(d+1)\sigma^2,
+  \]
+  par indépendance. Par récurrence simple, les formules valent pour tout $d\ge1$.
+\end{frame}
+
+\begin{frame}{Concentration relative et Chebyshev}
+  Coefficient de variation :
+  \[
+    \frac{\sqrt{\operatorname{Var}(S_d)}}{\mathbb E[S_d]}=\frac{\sqrt{d\,\sigma^2}}{d\,\mu} = \frac{C}{\sqrt d},\quad C=\frac{\sqrt{\sigma^2}}{\mu}=6\sqrt{\tfrac{7}{180}}.
+  \]
+  \vspace{0.2cm}
+  \textbf{Chebyshev :} pour tout $\varepsilon>0$,
+  \[
+    \Pr\big(|S_d-\mathbb E[S_d]|\ge \varepsilon\,\mathbb E[S_d]\big)\le \frac{\sigma^2}{\varepsilon^2\mu^2}\cdot\frac{1}{d} \xrightarrow[d\to\infty]{} 0.
+  \]
+  Donc \textbf{concentration relative} de $S_d$ autour de sa moyenne.
+\end{frame}
+
+\begin{frame}{Interprétation géométrique}
+  \begin{itemize}
+    \item $\mathbb E[S_d]=d/6$ croît linéairement en $d$ (donc $\mathbb E[\|x-y\|_2]\asymp \sqrt d$).
+    \item L'écart-type est $\asymp \sqrt d$ aussi, mais \textbf{relativement} à la moyenne il vaut $O(1/\sqrt d)$.
+    \item En grande dimension, les distances se ressemblent \textbf{relativement} : perte de pouvoir discriminant.
+  \end{itemize}
+\end{frame}
+\begin{frame}{Distance dans le cube unité : mise en place}
+Soient $x,y \in [0,1]^d$ deux points i.i.d. uniformes. \newline
+\vspace{0.3cm}
+\textbf{Définition :}  
+\[
+S_d = \|x-y\|_2^2 = \sum_{i=1}^d (x_i-y_i)^2.
+\]
+\textbf{Objectif :} Étudier la concentration de $S_d$ autour de son espérance quand $d \to \infty$.
+\end{frame}
+
+\begin{frame}{Cas $d=1$ : calcul des moments}
+Soient $U,V \sim \mathcal{U}[0,1]$ indépendants. Posons $X=(U-V)^2$.  
+\begin{itemize}
+  \item Espérance : $\mathbb{E}[X]=\tfrac{1}{6}$.
+  \item Moment d'ordre 4 : $\mathbb{E}[(U-V)^4]=\tfrac{1}{15}$.
+  \item Variance : $\operatorname{Var}(X)=\tfrac{7}{180}.$
+\end{itemize}
+Donc $\mu = 1/6$, $\sigma^2 = 7/180$.
+\end{frame}
+
+\begin{frame}{Étape de récurrence}
+Soient $X_1,\dots,X_d$ i.i.d. copies de $X$.  
+\[
+S_d = \sum_{i=1}^d X_i.
+\]
+Hypothèse de récurrence : $\mathbb{E}[S_d]=d\mu$, $\operatorname{Var}(S_d)=d\sigma^2$. \newline
+\vspace{0.2cm}
+Alors pour $d+1$ :
+\[
+S_{d+1}=S_d+X_{d+1}.
+\]
+Par indépendance :
+\[
+\mathbb{E}[S_{d+1}] = (d+1)\mu, \quad \operatorname{Var}(S_{d+1})=(d+1)\sigma^2.
+\]
+Donc la propriété est vraie pour tout $d$.
+\end{frame}
+
+\begin{frame}{Concentration relative}
+\textbf{Coefficient de variation :}
+\[
+\frac{\sqrt{\operatorname{Var}(S_d)}}{\mathbb{E}[S_d]} = \frac{\sqrt{d\sigma^2}}{d\mu} = \frac{C}{\sqrt{d}},
+\]
+avec $C = \frac{\sqrt{\sigma^2}}{\mu} = 6\sqrt{\tfrac{7}{180}}.$ \newline
+\vspace{0.3cm}
+Donc l’écart relatif décroît comme $1/\sqrt{d}$. Les distances deviennent indiscernables en grande dimension.
+\end{frame}
+
+\begin{frame}{Application de l’inégalité de Chebyshev}
+Pour tout $\varepsilon>0$ :
+\[
+\Pr\left( |S_d - \mathbb{E}[S_d]| \geq \varepsilon \mathbb{E}[S_d] \right) \leq \frac{\sigma^2}{\varepsilon^2\mu^2}\cdot \frac{1}{d}.
+\]
+\vspace{0.3cm}
+Ainsi, la probabilité d’un écart relatif décroît en $1/d$.
+\end{frame}
+
+\begin{frame}{Interprétation géométrique}
+\begin{itemize}
+  \item La distance moyenne entre deux points est $\sim d/6$.
+  \item L’écart-type est $\sim \sqrt{d}$.
+  \item Donc les distances sont \textbf{concentrées autour d’une valeur moyenne}.
+  \item Résultat : en grande dimension, \textbf{toutes les distances se ressemblent}. \newline
+  \textit{Conséquence : difficulté pour les méthodes basées sur les distances (kNN, clustering, etc.)}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple numérique : distances en haute dimension}
+  \begin{itemize}
+    \item Simulation : on génère $10^4$ points dans $[0,1]^d$.
+    \item On calcule la distance moyenne $\bar{d}$ et son écart-type $\sigma_d$.
+    \item Résultat : $\sigma_d/\bar{d} \to 0$ quand $d \to \infty$.
+  \end{itemize}
+  \begin{center}
+    \includegraphics[width=0.65\textwidth]{curse_of_dim.png} \\
+    \tiny Illustration : concentration des distances quand $d$ augmente.
+  \end{center}
+\end{frame}
+
+\begin{frame}{Loi triangulaire de la différence de deux uniformes}
+\textbf{Objectif :} Montrer que $Z = U - V$, avec $U,V\sim \mathcal U[0,1]$ i.i.d., suit une loi triangulaire sur $[-1,1]$.
+
+\begin{block}{Convolution}
+La densité de $Z$ est :
+\[
+  f_Z(z) = \int_{-\infty}^{+\infty} f_U(x) f_V(x-z) \, dx.
+\]
+Ici $f_U(x)=f_V(x)=1$ pour $x\in[0,1]$, 0 sinon.
+\end{block}
+
+\begin{itemize}
+  \item Pour $z \in [-1,0]$ :
+    \[f_Z(z) = \int_0^1 \mathbf{1}_{0 \le x-z \le 1} \, dx = \int_{0}^{1} \mathbf{1}_{z\le x \le 1+z} dx = 1+z.\]
+  \item Pour $z \in [0,1]$ :
+    \[f_Z(z) = \int_0^1 \mathbf{1}_{0 \le x-z \le 1} \, dx = \int_{z}^{1} dx = 1-z.\]
+  \item Sinon $f_Z(z)=0$.
+\end{itemize}
+
+\begin{block}{Résultat}
+\[
+f_Z(z) = \begin{cases} 1+z, & -1\le z < 0, \\
+1-z, & 0\le z \le 1, \\
+0, & \text{sinon}.\end{cases}
+\]
+C’est une densité triangulaire, symétrique, avec maximum en $z=0$.
+\end{block}
+
+\begin{center}
+  \includegraphics[width=0.55\textwidth]{triangular_density.png} \\
+  \tiny Densité triangulaire de $Z=U-V$.
+\end{center}
+\end{frame}
+
+\begin{frame}{Exercice : loi de la différence}
+Soient $U,V\sim \mathcal U[0,1]$ indépendants. Montrer que $Z=U-V$ a pour densité :
+\[
+f_Z(z) = \begin{cases} 1+z, & -1\le z<0, \\
+1-z, & 0\le z\le 1, \\
+0, & \text{sinon}.
+\end{cases}\]
+
+\textbf{Indication :} utiliser la convolution $f_Z(z)=\int f_U(x) f_V(x-z) dx$.
+\end{frame}
+
+\begin{frame}{Corrigé de l'exercice}
+  \begin{itemize}
+    \item Étape 1 : écrire $f_Z(z) = \int_{0}^{1} \mathbf{1}_{0\le x-z\le1} dx$.
+    \item Étape 2 : séparer les cas $z<0$ et $z\ge0$.
+    \item Étape 3 : calculer les intégrales :
+      \[f_Z(z) = 1+z \text{ pour } z\in[-1,0],\quad f_Z(z)=1-z \text{ pour } z\in[0,1].\]
+    \item Étape 4 : $f_Z(z)=0$ sinon.
+  \end{itemize}
+  On retrouve bien la loi triangulaire.
+\end{frame}
+
+
+\begin{frame}{Conséquences pratiques}
+  \begin{itemize}
+    \item Les méthodes classiques basées sur des distances euclidiennes deviennent inefficaces.
+    \item Clustering et k-plus proches voisins perdent leur sens.
+    \item Nécessité de méthodes tenant compte de la \textbf{structure intrinsèque} des données.
+    \item D’où la géométrie des données : travailler dans une \textit{dimension intrinsèque} $k \ll d$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Explosion dimensionnelle}
+  \begin{itemize}
+    \item Données modernes : images, sons, textes → espaces $\mathbb{R}^d$ avec $d \gg 1$.
+    \item \textbf{Malédiction de la dimension} :
+    \begin{itemize}
+      \item Volume croît exponentiellement avec $d$.
+      \item Distances deviennent peu discriminantes.
+    \end{itemize}
+    \item Besoin de méthodes exploitant la structure \og cachée \fg.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple : MNIST}
+  \begin{itemize}
+    \item Chaque image : $28 \times 28 = 784$ pixels → point dans $\mathbb{R}^{784}$.
+    \item Mais les chiffres manuscrits vivent sur une structure de dimension \textbf{intrinsèque} $k \ll 784$.
+    \item Question : comment trouver $k$ et représenter les données sur $\mathbb{R}^k$ ?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple visuel : Swiss Roll}
+  \begin{center}
+    \includegraphics[width=0.6\textwidth]{swissroll.png} \\
+    \tiny Un nuage de points en 3D mais structurellement 2D.
+  \end{center}
+\end{frame}
+
+\begin{frame}{Idée clé}
+  \begin{block}{Hypothèse de variété}
+    Les données $x_i \in \mathbb{R}^d$ sont concentrées sur une variété $\mathcal{M}$ de dimension $k \ll d$.
+  \end{block}
+  \[
+    x_i \in \mathcal{M} \subset \mathbb{R}^d, \quad \dim(\mathcal{M}) = k
+  \]
+\end{frame}
+
+% ------------------ Section 2 ------------------
+\section{Notions fondamentales}
+
+\begin{frame}{Espace métrique}
+  Un espace métrique est une paire $(X, d)$ avec :
+  \begin{align*}
+    d(x,y) &\geq 0 &\text{(positivité)} \\
+    d(x,y) &= 0 \iff x=y &\text{(séparation)} \\
+    d(x,y) &= d(y,x) &\text{(symétrie)} \\
+    d(x,z) &\leq d(x,y) + d(y,z) &\text{(inégalité triangulaire)}
+  \end{align*}
+\end{frame}
+
+\begin{frame}{Distances usuelles}
+  \begin{itemize}
+    \item Norme $\ell^2$: $d(x,y) = \|x-y\|_2 = \sqrt{\sum_i (x_i - y_i)^2}$.
+    \item Norme $\ell^1$: $d(x,y) = \sum_i |x_i - y_i|$.
+    \item Cosinus: $d(x,y) = 1 - \frac{\langle x, y \rangle}{\|x\| \|y\|}$.
+    \item Distances adaptées aux graphes et variétés.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Distance cosinus et distance angulaire}
+  Pour deux vecteurs $x,y \in \mathbb{R}^d$ non nuls :
+  \[
+    \cos\theta = \frac{x \cdot y}{\|x\|\|y\|}.
+  \]
+
+  \begin{itemize}
+    \item \textbf{Distance cosinus classique :} 
+      \[d_{\text{cos}}(x,y) = 1 - \cos\theta = 1 - \frac{x \cdot y}{\|x\|\|y\|}.\]
+      - Varies entre 0 et 2.
+      - Très utilisée en NLP et apprentissage automatique.
+      - Pas une vraie métrique : triangle inequality peut échouer.
+
+    \item \textbf{Distance basée sur l'angle :}
+      \[d_{\text{angle}}(x,y) = \arccos\left(\frac{x \cdot y}{\|x\|\|y\|}\right).\]
+      - Angle réel entre les vecteurs.
+      - Vraie métrique : satisfait la triangle inequality.
+      - Correspond à distance géodésique sur la sphère unité $S^{d-1}$.
+  \end{itemize}
+
+  \begin{center}
+    \includegraphics[width=0.2\textwidth]{cosine_vs_angle.png} \\
+    \tiny Illustration : distance cosinus vs distance angulaire.
+  \end{center}
+\end{frame}
+
+
+\begin{frame}{Variété}
+  \begin{itemize}
+    \item Une variété $\mathcal{M}$ est un espace qui ressemble localement à $\mathbb{R}^k$.
+    \item Exemple : sphère $S^2$ dans $\mathbb{R}^3$.
+  \end{itemize}
+  \begin{block}{Définition simplifiée}
+    Pour chaque $x \in \mathcal{M}$, il existe un voisinage $U$ et une bijection $\varphi : U \to V \subset \mathbb{R}^k$.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Distance géodésique}
+  Sur une variété $\mathcal{M}$, la distance naturelle est la longueur du plus court chemin $\gamma$ contenu dans $\mathcal{M}$ :
+  \[
+    d_\mathcal{M}(x,y) = \inf_{\gamma : [0,1]\to\mathcal{M}} \int_0^1 \|\dot{\gamma}(t)\| dt
+  \]
+  Exemple : distance sur la sphère = angle central multiplié par le rayon.
+\end{frame}
+
+\begin{frame}{Variétés de données : définition détaillée}
+  \textbf{Définition informelle :} Une variété $\mathcal M$ de dimension $k$ est un sous-ensemble de $\mathbb R^d$ qui, localement autour de chaque point, ressemble à $\mathbb R^k$.
+
+  \begin{itemize}
+    \item Pour chaque point $x \in \mathcal M$, il existe un voisinage $U$ et une application bijective \textbf{carte} $\varphi: U \to V \subset \mathbb R^k$ telle que $\varphi$ et $\varphi^{-1}$ soient continues (ou différentiables pour les variétés différentiables).
+    \item $k$ est la \textbf{dimension intrinsèque} de la variété.
+    \item Exemple : le cercle $S^1 \subset \mathbb R^2$ est une variété 1D, la sphère $S^2 \subset \mathbb R^3$ est une variété 2D.
+  \end{itemize}
+
+  \textbf{Notation :} $\mathcal M^k \subset \mathbb R^d$ indique une variété de dimension $k$ dans $\mathbb R^d$.
+\end{frame}
+
+\begin{frame}{Propriétés fondamentales d'une variété}
+  \begin{itemize}
+    \item \textbf{Localement Euclidienne :} autour de chaque point, les distances et topologie se comportent comme dans $\mathbb R^k$.
+    \item \textbf{Dimension intrinsèque :} le nombre minimal de coordonnées nécessaires pour paramétrer la variété.
+    \item \textbf{Continuité et différentiabilité :} cartes et applications de transition doivent être continues ou différentiables.
+    \item \textbf{Géodésiques :} la distance naturelle sur la variété est la longueur du plus court chemin restant dans la variété.
+    \item \textbf{Courbure :} mesure locale de la déviation par rapport à un espace plat $\mathbb R^k$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemples de variétés courantes}
+  \begin{itemize}
+    \item Cercle $S^1$ dans $\mathbb R^2$ (dimension 1).
+    \item Sphère $S^2$ dans $\mathbb R^3$ (dimension 2).
+    \item Cylindre dans $\mathbb R^3$ (dimension 2).
+    \item Variétés de matrices de rang fixe : $\{X\in\mathbb R^{m\times n}: \mathrm{rank}(X)=r\}$.
+    \item Espace des rotations $SO(3)$ (dimension 3), utilisé en robotique et vision.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Carte et atlas}
+  \begin{itemize}
+    \item \textbf{Carte :} fonction $\varphi: U\subset \mathcal M \to V\subset \mathbb R^k$ qui localement paramétrise la variété.
+    \item \textbf{Atlas :} collection de cartes $\{(U_i,\varphi_i)\}$ recouvrant toute la variété.
+    \item \textbf{Exemple :} sphère $S^2$, on peut utiliser coordonnées sphériques différentes pour couvrir les pôles et l'équateur.
+    \item Les cartes permettent de définir des notions de dérivée, intégrale et courbure sur la variété.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Distances et géodésiques sur une variété}
+  \begin{itemize}
+    \item La distance euclidienne $\|x-y\|$ dans $\mathbb R^d$ ne respecte pas toujours la structure intrinsèque de la variété.
+    \item La \textbf{distance géodésique} $d_\mathcal M(x,y)$ est la longueur du chemin le plus court restant dans la variété.
+    \item Exemples :
+      \begin{itemize}
+        \item Cercle $S^1$: distance géodésique = arc le plus court entre deux points.
+        \item Sphère $S^2$: distance géodésique = longueur de l'arc de grand cercle.
+      \end{itemize}
+    \item Les distances géodésiques sont fondamentales pour la réduction de dimension non linéaire et le clustering sur variétés.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Distance géodésique sur la sphère : arc de grand cercle}
+\begin{center}
+  \includegraphics[width=0.4\textwidth]{great_circle_arc.png} \\
+  \tiny Schéma : sphère de rayon $R$, points $A$ et $B$, grand cercle et angle $\theta$.
+\end{center}
+
+\begin{itemize}
+  \item Le plus court chemin sur la sphère est l'\textbf{arc de grand cercle} reliant $A$ et $B$.
+  \item Longueur de l'arc : $L = R \cdot \theta$, avec $\theta$ en radians.
+  \item Angle au centre : $\theta = \arccos\left(\frac{x \cdot y}{R^2}\right)$ pour $x,y \in S^2$.
+  \item Pour une sphère unité ($R=1$) : $d_{S^2}(x,y) = \arccos(x \cdot y)$.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Applications des variétés en science des données}
+  \begin{itemize}
+    \item Réduction de dimension non linéaire : Isomap, LLE, Diffusion Maps.
+    \item Détection de structure intrinsèque dans des données haute dimension.
+    \item Modélisation de données sur des espaces non Euclidiens : rotations, formes, graphes.
+    \item Méthodes de machine learning adaptées aux données de faible dimension intrinsèque.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Laplacien de graphe}
+  Pour un graphe $G=(V,E)$ avec poids $w_{ij}$ :
+  \begin{align*}
+    D_{ii} &= \sum_j w_{ij}, \\
+    L &= D - W.
+  \end{align*}
+  Propriétés :
+  \begin{itemize}
+    \item $L$ est semi-défini positif.
+    \item $L$ approxime le Laplacien sur la variété sous-jacente.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple : chaleur sur un graphe}
+  \[
+    \frac{du}{dt} = -Lu
+  \]
+  $L$ joue le rôle de dérivée seconde discrète.
+  Solution : $u(t) = e^{-tL}u(0)$.
+\end{frame}
+
+% ------------------ Section 3 ------------------
+\section{Applications}
+
+\begin{frame}{Réduction de dimension}
+  But : trouver $f : \mathbb{R}^d \to \mathbb{R}^k$ qui conserve la géométrie.
+  \begin{itemize}
+    \item PCA : directions de variance maximale.
+    \item Isomap : distances géodésiques.
+    \item Diffusion maps : diffusion de chaleur.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{PCA en formule}
+  \begin{align*}
+    \Sigma &= \frac{1}{n}\sum_{i=1}^n (x_i - \mu)(x_i - \mu)^T \\
+    \text{vecteurs propres de } \Sigma &\Rightarrow directions principales.
+  \end{align*}
+\end{frame}
+
+\begin{frame}{Analyse en Composantes Principales (PCA) : Introduction}
+  \begin{itemize}
+    \item PCA est une méthode linéaire de réduction de dimension.
+    \item Objectif : trouver les directions principales (axes) qui capturent le plus de variance dans les données.
+    \item Idée : projeter les données dans un sous-espace de dimension $k \ll d$ en minimisant la perte d'information.
+    \item Utile pour visualisation, compression, prétraitement de machine learning.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Formulation mathématique de la PCA}
+  \begin{itemize}
+    \item Soient $X = [x_1, \dots, x_n]^\top \in \mathbb{R}^{n\times d}$ les données centrées ($\bar x = 0$).
+    \item Matrice de covariance :
+      \[\Sigma = \frac{1}{n} X^\top X \in \mathbb{R}^{d\times d}.\]
+    \item Cherchons vecteurs propres $v_j$ et valeurs propres $\lambda_j$ :
+      \[\Sigma v_j = \lambda_j v_j, \quad j=1,\dots,d.\]
+    \item Les $v_j$ sont les directions principales (composantes principales).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Projection sur les composantes principales}
+  \begin{itemize}
+    \item Les $k$ premières composantes principales correspondent aux $k$ plus grandes valeurs propres $\lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_k$.
+    \item Projection :
+      \[y_i = V_k^\top x_i, \quad V_k = [v_1, \dots, v_k] \in \mathbb{R}^{d\times k}.\]
+    \item Reconstruction approchée :
+      \[\hat{x}_i = V_k y_i = V_k V_k^\top x_i.\]
+    \item Erreur de reconstruction : minimisée par la PCA.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Propriété d’optimalité}
+  La PCA est l’approximation linéaire optimale au sens des moindres carrés :
+  \[
+    \min_{V_k \in \mathbb{R}^{d\times k}, V_k^\top V_k = I_k} \sum_{i=1}^n \|x_i - V_k V_k^\top x_i\|^2.\]
+  
+  La solution est donnée par les $k$ vecteurs propres associés aux $k$ plus grandes valeurs propres de $\Sigma$.
+\end{frame}
+
+\begin{frame}{Variance expliquée}
+  \begin{itemize}
+    \item Variance totale : $\mathrm{Tr}(\Sigma) = \sum_{j=1}^d \lambda_j$.
+    \item Variance capturée par les $k$ premières composantes : $\sum_{j=1}^k \lambda_j$.
+    \item Fraction de variance expliquée :
+      \[
+        \text{FVE}(k) = \frac{\sum_{j=1}^k \lambda_j}{\sum_{j=1}^d \lambda_j}.\]
+    \item Permet de choisir le nombre optimal $k$ pour la réduction de dimension.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple numérique}
+  \begin{itemize}
+    \item Données $X \in \mathbb{R}^{100\times 5}$ simulées.
+    \item Calculer $\Sigma = X^\top X / 100$.
+    \item Calcul des valeurs propres et vecteurs propres.
+    \item Projection sur $k=2$ premières composantes principales pour visualisation.
+    \item Observer la concentration des données le long des directions principales.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{PCA et SVD}
+  \begin{itemize}
+    \item Alternative : utiliser la décomposition en valeurs singulières (SVD) : $X = U \Sigma V^\top$.
+    \item Composantes principales : colonnes de $V$.
+    \item Valeurs propres : carrés des valeurs singulières divisées par $n$.
+    \item Utile pour $d \gg n$ ou pour stabilité numérique.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice PCA}
+  Soit un ensemble de données centrées $X \in \mathbb{R}^{10 \times 3}$ :
+  \begin{itemize}
+    \item Calculer la matrice de covariance $\Sigma$.
+    \item Déterminer les vecteurs propres et valeurs propres.
+    \item Projeter les données sur les 2 premières composantes principales.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Corrigé exercice PCA}
+  \begin{itemize}
+    \item Étape 1 : $\Sigma = X^\top X / 10$.
+    \item Étape 2 : calcul des valeurs propres $\lambda_1 \ge \lambda_2 \ge \lambda_3$ et vecteurs propres $v_1,v_2,v_3$.
+    \item Étape 3 : projection $y_i = [v_1,v_2]^\top x_i$.
+    \item Étape 4 : visualisation et analyse de la variance expliquée.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Isomap}
+  \begin{enumerate}
+    \item Construire graphe $k$-NN.
+    \item Approximer distances géodésiques par plus courts chemins.
+    \item Appliquer MDS (multidimensional scaling).
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Isomap : Introduction}
+  \begin{itemize}
+    \item Isomap (Isometric Mapping) est une méthode non-linéaire de réduction de dimension.
+    \item Objectif : préserver les distances géodésiques entre les points d’une variété plongée dans un espace de haute dimension.
+    \item Extension de MDS (Multidimensional Scaling) aux variétés non-linéaires.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Idée clé d’Isomap}
+  \begin{enumerate}
+    \item Construire un graphe des plus proches voisins (k-NN ou $\epsilon$-voisinage).
+    \item Approximater les distances géodésiques par des plus courts chemins dans le graphe.
+    \item Appliquer le MDS classique avec ces distances géodésiques approximées.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Étape 1 : Graphe de voisinage}
+  \begin{itemize}
+    \item Pour chaque point $x_i$, on relie ses $k$ plus proches voisins (ou tous les voisins dans une boule de rayon $\epsilon$).
+    \item Arêtes pondérées par la distance euclidienne :
+      \[ w_{ij} = \|x_i - x_j\|_2. \]
+    \item Graphe $G=(V,E)$ approximant la structure locale de la variété.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Étape 2 : Distances géodésiques}
+  \begin{itemize}
+    \item La distance géodésique entre $x_i$ et $x_j$ est approximée par la longueur du plus court chemin dans $G$ :
+      \[ d_G(i,j) = \min_{chemins(i \to j)} \sum_{(u,v)\in chemin} w_{uv}. \]
+    \item Utilisation d’algorithmes classiques : Dijkstra ou Floyd–Warshall.
+    \item Matrice des distances géodésiques $D_G = (d_G(i,j))_{i,j}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Étape 3 : Application de MDS}
+  \begin{itemize}
+    \item Objectif : trouver une configuration de points $Y_1, \ldots, Y_n \in \mathbb{R}^d$ telle que
+      \
+      \[ \|Y_i - Y_j\|^2 \approx d_G(i,j)^2. \]
+    \item On applique le MDS classique (Scaling multidimensionnel) :
+      
+    \begin{enumerate}
+      \item On construit la matrice des distances au carré $D_G^{(2)} = (d_G(i,j)^2)_{ij}$.
+      \item On centre cette matrice :
+        \
+        \[ B = -\tfrac{1}{2} H D_G^{(2)} H, \quad H = I - \tfrac{1}{n} \mathbf{1}\mathbf{1}^\top. \]
+      \item $B$ est une approximation de la matrice de Gram $YY^\top$.
+      \item On diagonalise $B = V \Lambda V^\top$.
+      \item Les coordonnées en dimension $d$ sont données par :
+        \
+        \[ Y = V_d \Lambda_d^{1/2}, \]
+        où $V_d$ contient les $d$ vecteurs propres principaux et $\Lambda_d$ les $d$ plus grandes valeurs propres.
+    \end{enumerate}
+    \item Ainsi, on obtient une immersion en $d$ dimensions qui préserve au mieux les distances géodésiques.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Étape 3 : Application de MDS}
+  \begin{itemize}
+    \item On applique le MDS classique sur $D_G$ pour obtenir une représentation en basse dimension.
+    \item Centrage double :
+      \[ B = -\tfrac{1}{2} H D_G^{(2)} H, \quad H = I - \tfrac{1}{n} \mathbf{1}\mathbf{1}^\top. \]
+    \item Décomposition spectrale :
+      \[ B = V \Lambda V^\top. \]
+    \item Coordonnées en dimension $d$ :
+      \[ Y = V_d \Lambda_d^{1/2}. \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Propriétés d’Isomap}
+  \begin{itemize}
+    \item Préserve la géométrie globale de la variété.
+    \item Gère des données fortement non-linéaires (spirale, Swiss roll).
+    \item Consistance théorique : converge vers la métrique de la variété quand $n\to \infty$.
+    \item Sensible aux choix de $k$ ou $\epsilon$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple : Swiss Roll}
+  \begin{itemize}
+    \item Données 3D enroulées en spirale (« rouleau suisse »).
+    \item PCA : incapacité à « dérouler » la structure.
+    \item Isomap : reconstitue correctement la structure 2D sous-jacente.
+  \end{itemize}
+  \begin{center}
+    \includegraphics[width=0.6\textwidth]{swiss_roll_isomap.png}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Exercice Isomap}
+  \begin{itemize}
+    \item Générer un jeu de données 3D de type Swiss roll.
+    \item Construire le graphe $k$-NN avec $k=10$.
+    \item Calculer les plus courts chemins (algorithme de Dijkstra).
+    \item Appliquer MDS sur la matrice de distances.
+    \item Visualiser la représentation 2D obtenue.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Corrigé Exercice Isomap}
+  \begin{itemize}
+    \item Étape 1 : génération des points $(x,y,z)$.
+    \item Étape 2 : construction du graphe $k$-NN.
+    \item Étape 3 : distances géodésiques via Dijkstra.
+    \item Étape 4 : matrice $B$ et décomposition spectrale.
+    \item Résultat : une carte 2D déroulant le Swiss roll.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé intuitif d'Isomap}
+  \begin{itemize}
+    \item But : représenter les données dans un espace de dimension réduite $d$ (typiquement 2 ou 3).
+    \item On calcule d'abord les distances géodésiques $d_G(i,j)$ entre points dans l'espace original (via le graphe de voisinage).
+    \item Puis on cherche des points $Y_i \in \mathbb{R}^d$ tels que :
+      \
+      \[ \|Y_i - Y_j\| \approx d_G(i,j). \]
+    \item Ainsi :
+      \begin{itemize}
+        \item Les distances locales sont respectées.
+        \item La géométrie intrinsèque de la variété est préservée.
+        \item On obtient une carte en basse dimension reflétant la structure réelle des données.
+      \end{itemize}
+    \item Différence clé avec PCA : Isomap ne se base pas uniquement sur les distances euclidiennes globales, mais sur les distances intrinsèques (géodésiques).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Diffusion Maps}
+  \begin{itemize}
+    \item Construire matrice de transition $P = D^{-1}W$.
+    \item Valeurs propres $\lambda_1, \lambda_2, ...$ et vecteurs propres $\psi_i$.
+    \item Représentation des données :
+    \[
+      x \mapsto (\lambda_1^t\psi_1(x), \dots, \lambda_k^t\psi_k(x))
+    \]
+  \end{itemize}
+\end{frame}
+
+% ----------------- Diffusion Maps (à insérer) -----------------
+\begin{frame}{Diffusion Maps : introduction}
+  \begin{itemize}
+    \item Diffusion Maps (Coifman \& Lafon, 2006) : méthode spectrale non-linéaire de réduction de dimension.
+    \item Idée : utiliser la dynamique de diffusion (marche aléatoire) sur le graphe de voisinage pour révéler la géométrie intrinsèque.
+    \item Résultat : coordonnées multi-échelle (robustes au bruit et à l'échantillonnage irrégulier).
+  \end{itemize}
+\end{frame}
+
+% Exemple de slide Diffusion Maps avec notations cohérentes
+
+\begin{frame}{Diffusion Maps : idée générale}
+ \begin{itemize}
+    \item Construire un graphe de similarité entre les points (par ex. noyau gaussien).
+    \item Normaliser la matrice de similarité $K$ pour obtenir une matrice de transition stochastique $P$ d'une marche aléatoire.
+    \item Les puissances $P^t$ décrivent la diffusion des probabilités après $t$ pas.
+    \item Les coordonnées réduites sont données par les vecteurs propres dominants de $P$ associés aux valeurs propres $\{ \lambda_k \}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Pseudo-code : Diffusion Maps (notations corrigées)}
+\begin{verbatim}
+Entrée : Données {x_i}, paramètre ε (bande du noyau), dimension cible d, temps t.
+1. Construire la matrice de similarité : K(i,j) = exp(-||x_i - x_j||^2 / ε).
+2. Normaliser : D(i,i) = somme_j K(i,j).
+3. Matrice de transition : P = D^{-1} K.
+4. Calcul spectral : trouver les paires (\lambda_k, \phi_k) avec P \phi_k = \lambda_k \phi_k.
+5. Embedding diffusion à temps t : y_i = (\lambda_1^t \phi_1(i), ..., \lambda_d^t \phi_d(i)).
+Sortie : Points {y_i} en dimension réduite.
+\end{verbatim}
+\end{frame}
+
+\begin{frame}{Remarques sur les notations}
+  \begin{itemize}
+    \item $K$ : matrice de similarité (symétrique positive).
+    \item $D$ : matrice diagonale des degrés $D(i,i) = \sum_j K(i,j)$.
+    \item $P = D^{-1} K$ : matrice de transition stochastique (les lignes somment à 1).
+    \item $(\lambda_k, \phi_k)$ : valeurs propres et vecteurs propres droits de $P$.
+    \item L'embedding utilise les $d$ plus grandes valeurs propres (hors $\lambda_0 = 1$ trivial).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Construction : noyau à noyau gaussien}
+  \begin{itemize}
+    \item Noyau usuel (gaussien) :
+      \[
+        W_{ij} = \exp\!\Big(-\frac{\|x_i-x_j\|^2}{\varepsilon}\Big).
+      \]
+    \item $\varepsilon>0$ est la largeur du noyau (contrôle la localité).
+    \item $W$ est souvent construit sur un graphe $k$-NN (matrice creuse) pour l'efficacité.
+    \item Noter le rôle de la densité d'échantillonnage : $q_i=\sum_j W_{ij}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Normalisation : corriger la densité (paramètre $\alpha$)}
+  \begin{itemize}
+    \item Pour neutraliser l'effet d'une densité non uniforme, on normalise :
+      \[
+        \widetilde W_{ij} = \frac{W_{ij}}{(q_i q_j)^\alpha},\qquad \alpha\in[0,1].
+      \]
+    \item Interprétations pratiques :
+      \begin{itemize}
+        \item $\alpha=0$ : pas de correction (sensitif à la densité).
+        \item $\alpha=1$ : corrige l'échantillonnage pour approcher le Laplace–Beltrami (annule l'effet de densité).
+        \item $\alpha\in(0,1)$ : compromis ; souvent $\alpha=1/2$ est utilisé empirique.
+      \end{itemize}
+    \item Ensuite : construire $\widetilde D=\mathrm{diag}(\widetilde d_i)$ avec $\widetilde d_i=\sum_j\widetilde W_{ij}$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Opérateur de Markov et symétrisation}
+  \begin{itemize}
+    \item Opérateur de transition (ligne-stochastique) :
+      \[
+        P = \widetilde D^{-1}\widetilde W, \qquad P_{ij} = \Pr(x_i\to x_j\ \text{en 1 pas}).
+      \]
+    \item Pour une décomposition numérique stable, on passe à la forme symétrique :
+      \[
+        \widehat W = \widetilde D^{-1/2}\widetilde W\ \widetilde D^{-1/2}.
+      \]
+    \item Si $\widehat W=\Phi\Lambda\Phi^\top$ (diagon.), alors
+      \[
+        \Psi = \widetilde D^{-1/2}\Phi
+      \]
+      contient les vecteurs propres de $P$ et $P\Psi=\Psi\Lambda$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Lien continu : noyau de chaleur et Laplace–Beltrami}
+  \begin{itemize}
+    \item Dans la limite $n\to\infty$, $\varepsilon\to 0$ (avec un bon régime), $P$ approxime un opérateur de diffusion :
+      \[
+        P^t \approx e^{t\Delta},
+      \]
+      où $\Delta$ est le Laplace–Beltrami (ou un opérateur lié selon $\alpha$).
+    \item Les vecteurs propres de $P$ ~ les fonctions propres de $\Delta$ : portent la géométrie multi-échelle de la variété.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Embedding : coordonnées de diffusion}
+  \begin{itemize}
+    \item Diagonaliser $P$: $P\psi_j=\lambda_j\psi_j$, avec $1=\lambda_0\ge\lambda_1\ge\cdots$.
+    \item Embedding à l'échelle $t$ :
+      \[
+        \Psi_t(x_i) = \big(\lambda_1^t\psi_1(i),\; \lambda_2^t\psi_2(i),\; \dots,\; \lambda_k^t\psi_k(i)\big)\in\mathbb{R}^k.
+      \]
+    \item $t$ joue le rôle d'échelle temporelle : plus $t$ grand → relations plus globales sont privilégiées.
+    \item On supprime la composante constante associée à $\lambda_0=1$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Distance de diffusion}
+  \begin{itemize}
+    \item Distance de diffusion (au pas $t$) :
+      \[
+        D_t^2(x_i,x_j) = \sum_{\ell\ge 1} \lambda_\ell^{2t}\big(\psi_\ell(i)-\psi_\ell(j)\big)^2.
+      \]
+    \item Propriété clé : $D_t$ est la distance euclidienne dans l'espace $\Psi_t$ :
+      \[
+        D_t(x_i,x_j)=\|\Psi_t(x_i)-\Psi_t(x_j)\|_2.
+      \]
+    \item Interprétation : $D_t$ compare la distribution des positions après $t$ pas de marche aléatoire démarrée en $x_i$ et $x_j$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Algorithme pratique (récapitulatif)}
+  \begin{enumerate}
+    \item Construire k-NN (ou graphe complet) et $W_{ij}=\exp(-\|x_i-x_j\|^2/\varepsilon)$.
+    \item Calculer $q_i$, choisir $\alpha$ et normaliser $\widetilde W_{ij}=W_{ij}/(q_i q_j)^\alpha$.
+    \item Construire $\widetilde D$ et $P=\widetilde D^{-1}\widetilde W$ (ligne-stochastique).
+    \item Calculer quelques premières valeurs propres et vecteurs propres (Lanczos/ARPACK sur la forme creuse ou sur $\widehat W$).
+    \item Embedding $\Psi_t$ pour $t$ et réduction sur $k$ premières coordonnées utiles.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Choix pratiques et pièges}
+  \begin{itemize}
+    \item Choix de $\varepsilon$ : heuristiques — médiane des distances au carré, ou adaptation locale (bandwidth local).
+    \item Choix de $k$ pour k-NN : trop petit → graphe non connecté ; trop grand → raccourcis artificiels.
+    \item $\alpha$ corrige la densité : tester 0, 1/2, 1 selon but (estimation de Laplace–Beltrami → $\alpha$ proche de 1).
+    \item Diagonalisation : utiliser routines creuses (eigs / eigsh) ; calculer seulement premiers vecteurs.
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Diffusion Maps : intuition spectrale}
+  \begin{itemize}
+    \item La matrice de transition $P$ est diagonalisable : 
+      \[
+      P \phi_k = \lambda_k \phi_k, \quad k=0,1,\dots,n-1.
+      \]
+    \item Comme $P$ est stochastique, on a $|\lambda_k| \leq 1$ et $\lambda_0=1$ associé au vecteur propre constant.
+    \item En élevant $P$ à la puissance $t$ :
+      \[
+      P^t \phi_k = \lambda_k^t \phi_k.
+      \]
+    \item Les puissances de $\lambda_k$ contrôlent la persistance de chaque mode de diffusion.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Convergence de la diffusion}
+  \begin{itemize}
+    \item Lorsque $t \to \infty$, seuls les modes dominants (valeurs propres proches de 1) subsistent.
+    \item Les modes associés à $|\lambda_k| < 1$ décroissent géométriquement :
+      \[
+      \lambda_k^t \to 0 \quad \text{si } |\lambda_k| < 1.
+      \]
+    \item Ainsi, la diffusion filtre progressivement le bruit et ne garde que les structures globales de la variété.
+    \item Cela justifie l'utilisation des vecteurs propres dominants pour l'embedding.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Coordonnées de diffusion}
+  \begin{itemize}
+    \item On définit les coordonnées réduites à temps $t$ :
+      \[
+      \Psi_t(x_i) = (\lambda_1^t \phi_1(i), \ldots, \lambda_d^t \phi_d(i)).
+      \]
+    \item Interprétation :
+      \begin{itemize}
+        \item Chaque coordonnée capture une échelle de diffusion donnée.
+        \item Les valeurs propres pondèrent la contribution en fonction de la durée $t$.
+      \end{itemize}
+    \item Résultat : les distances euclidiennes dans l’espace $\Psi_t$ approximent la distance de diffusion sur la variété.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Valeurs propres de $P$ stochastique}
+\begin{itemize}
+  \item $P$ est ligne-stochastique : $\sum_j P_{ij} = 1$, $P_{ij} \ge 0$.
+  \item Le vecteur constant $\mathbf{1}$ est vecteur propre : $P \mathbf{1} = \mathbf{1}$, donc $\lambda_0 = 1$.
+  \item Théorème de Perron-Frobenius : pour une matrice stochastique irréductible et apériodique,
+    \[
+      |\lambda_k| < 1 \quad \text{pour } k \ge 1.
+    \]
+  \item Interprétation : modes non dominants décroissent avec le temps :
+    \[
+      P^t = \sum_k \lambda_k^t \psi_k \phi_k^\top, \quad \lambda_k^t \to 0 \text{ si } k \ge 1.
+    \]
+  \item Conséquence pour Diffusion Maps : les petites valeurs propres sont filtrées par la diffusion, ne restent que les modes lents (grande échelle) dans l'embedding.
+\end{itemize}
+
+\vspace{0.5em}
+\begin{center}
+\texttt{Exemple schématique : décroissance de $\lambda_k^t$ avec $t$}
+\\
+\texttt{t=0: |\lambda_1^0|=1, |\lambda_2^0|<1,...} \\
+\texttt{t=5: |\lambda_1^5|<1, |\lambda_2^5|<<1,...} \\
+\texttt{t=10: |\lambda_1^{10}|<<1,...}
+\end{center}
+\end{frame}
+
+
+
+\begin{frame}{Comparaison synthétique}
+  \begin{itemize}
+    \item \textbf{Isomap} : préserve distances géodésiques (MDS sur d\_G) — sensible à raccourcis et trous.
+    \item \textbf{Diffusion Maps} : préserve similarités multi-échelle via diffusion — robuste au bruit et à l'échantillonnage non uniforme (avec normalisation).
+    \item \textbf{t-SNE} : optimisé pour visualisation locale (ne définit pas une métrique globale stable comme $D_t$).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice (pratique)}
+  \begin{itemize}
+    \item Implémenter Diffusion Maps sur un Swiss-roll bruité.
+    \item Tester : différents $\varepsilon$, $\alpha$ (0, 0.5, 1) et $t$ (1,5,10).
+    \item Tracer $\Psi_t$ (2D) et mesurer la corrélation entre $D_t$ et une estimation des distances géodésiques.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Esquisse de code (Python) }
+\small
+\begin{verbatim}
+# pseudo-code (numpy/scipy)
+# X : n x D data
+# 1) k-NN graph -> sparse distances
+# 2) W_ij = exp(-dist^2 / eps)
+# 3) q = W.sum(axis=1)
+# 4) Wt = W / (q[:,None]*q[None,:])**alpha
+# 5) dtilde = Wt.sum(axis=1); Dtil = diag(dtilde)
+# 6) P = sparse_diag(1/dtilde) @ Wt
+# 7) compute top-k eigenpairs of P (or symmetrized)
+# 8) Psi_t = (lambdas[1:k]**t) * psi[1:k,:]  # per-point vectors
+\end{verbatim}
+\end{frame}
+% ----------------------------------------------------------------
+
+
+\begin{frame}{Exemple de visualisation}
+  \begin{center}
+    \includegraphics[width=0.65\textwidth]{pca_tsne_umap.png} \\
+    \tiny PCA vs t-SNE vs UMAP sur MNIST.
+  \end{center}
+\end{frame}
+
+%================= Slide 1 : Idée générale =================
+\begin{frame}{t-SNE : idée générale}
+\begin{itemize}
+  \item Transformer les distances locales en probabilités de voisinage :
+    \[
+      p_{j|i} = \frac{\exp(-\|x_i - x_j\|^2 / 2\sigma_i^2)}
+                     {\sum_{k \neq i} \exp(-\|x_i - x_k\|^2 / 2\sigma_i^2)}
+    \]
+  \item Symétrisation :
+    \[
+      p_{ij} = \frac{p_{j|i} + p_{i|j}}{2n}
+    \]
+  \item Objectif : trouver un embedding \(\{y_i\}\) en 2D/3D tel que
+    les probabilités \(q_{ij}\) dans l’espace réduit soient proches de \(p_{ij}\) :
+    \[
+      q_{ij} = \frac{(1 + \|y_i - y_j\|^2)^{-1}}
+                     {\sum_{k \neq l} (1 + \|y_k - y_l\|^2)^{-1}}
+    \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Fonction de coût =================
+\begin{frame}{t-SNE : fonction de coût}
+\begin{itemize}
+  \item Mesure de similarité entre distributions : divergence de Kullback-Leibler
+    \[
+      C = \sum_{i \neq j} p_{ij} \log \frac{p_{ij}}{q_{ij}}
+    \]
+  \item Minimiser \(C\) par descente de gradient pour obtenir l’embedding \(\{y_i\}\)
+  \item Résultat : les points proches dans l’espace original restent proches dans l’espace réduit,
+    les distances globales sont moins fiables
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Comparaison avec Diffusion Maps =================
+\begin{frame}{t-SNE vs Diffusion Maps}
+\begin{itemize}
+  \item Diffusion Maps :
+    \begin{itemize}
+      \item Spectral : vecteurs propres de $P$ (ou $L$)
+      \item Distances globales approximatives
+      \item Capture multi-échelle
+    \end{itemize}
+  \item t-SNE :
+    \begin{itemize}
+      \item Probabiliste local : $p_{ij}$ et $q_{ij}$
+      \item Préserve très fidèlement les voisins proches
+      \item Distances globales moins significatives
+    \end{itemize}
+  \item Conclusion : Diffusion Maps = structure globale, t-SNE = visualisation intuitive
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Paramètres clés =================
+\begin{frame}{t-SNE : paramètres clés}
+\begin{itemize}
+  \item \textbf{Perplexité} : nombre effectif de voisins pris en compte
+  \item \textbf{Learning rate / itérations} : stabilité et convergence
+  \item \textbf{Initialisation / Random seed} : influence l’embedding final
+  \item Astuce : tester plusieurs perplexités pour explorer différentes structures locales
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Applications pratiques}
+  \begin{itemize}
+    \item Visualisation de données haute dimension.
+    \item Compression (codage parcimonieux).
+    \item Classification et clustering améliorés.
+    \item IA générative : échantillonnage sur variétés.
+  \end{itemize}
+\end{frame}
+
+% ------------------ Section 4 ------------------
+\section{Exemples et Exercices}
+
+\begin{frame}{Exercice 1 -- Distance en haute dimension}
+  Soit $x,y \in \mathbb{R}^{100}$ deux vecteurs aléatoires de coordonnées $\sim \mathcal{U}[0,1]$.
+  \begin{itemize}
+    \item Estimer $\mathbb{E}[\|x-y\|_2]$.
+    \item Comparer avec $\mathbb{E}[\|x-y\|_1]$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Correction Exercice 1}
+  \begin{itemize}
+    \item Chaque coordonnée $x_i-y_i$ suit une loi $\mathcal{U}[-1,1]$ de variance $\tfrac{1}{3}$.
+    \item Espérance de la norme $\ell^2$ : $\sqrt{d \cdot \mathbb{E}[(x_i-y_i)^2]} = \sqrt{100 \cdot \tfrac{1}{3}} \approx 5.77$.
+    \item Espérance de la norme $\ell^1$ : $d \cdot \mathbb{E}[|x_i-y_i|] = 100 \cdot \tfrac{1}{3} \approx 33.3$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice 2 -- Distance géodésique sur la sphère}
+  Soient $x,y \in S^2$ (sphère unité dans $\mathbb{R}^3$).
+  \begin{itemize}
+    \item Montrer que la distance géodésique est :
+    \[
+      d(x,y) = \arccos(\langle x,y \rangle)
+    \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Correction Exercice 2}
+  \begin{itemize}
+    \item Sur $S^2$, le plus court chemin est un arc de grand cercle.
+    \item L’angle entre $x$ et $y$ est $\theta = \arccos(\langle x,y \rangle)$.
+    \item Longueur de l’arc = $\theta$ (car rayon = 1).
+    \item Donc : $d(x,y) = \arccos(\langle x,y \rangle)$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice 3 -- Laplacien de graphe}
+  Graphe à 3 nœuds reliés en ligne : $1-2-3$ avec poids $w_{ij}=1$.
+  \begin{itemize}
+    \item Écrire la matrice de poids $W$.
+    \item Calculer le Laplacien $L$.
+    \item Vérifier que $L \mathbf{1} = 0$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Correction Exercice 3}
+  \[
+    W = \begin{bmatrix} 0 & 1 & 0 \\ 1 & 0 & 1 \\ 0 & 1 & 0 \end{bmatrix}, \quad
+    D = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 2 & 0 \\ 0 & 0 & 1 \end{bmatrix}
+  \]
+  \[
+    L = D - W = \begin{bmatrix} 1 & -1 & 0 \\ -1 & 2 & -1 \\ 0 & -1 & 1 \end{bmatrix}
+  \]
+  Vérification : $L \mathbf{1} = 0$.
+\end{frame}
+
+% ------------------ Section 5 ------------------
+\section{Conclusion}
+
+\begin{frame}{Résumé}
+  \begin{block}{Idée clé}
+    Les données haute dimension vivent souvent sur une variété de faible dimension. La géométrie des données permet d’exploiter cette structure via distances, graphes et spectre.
+  \end{block}
+  \begin{block}{Prochain module}
+    Réduction de dimension non linéaire (Isomap, Diffusion Maps, etc.).
+  \end{block}
+\end{frame}
+
+%================= MODULE 2 =================
+\section{Module 2 : Graphes et diffusion sur données}
+
+\begin{frame}{Module 2 : plan}
+\begin{itemize}
+  \item Construction de graphes (k-NN, $\varepsilon$-graph, pondérés)
+  \item Laplacien de graphe : définitions et interprétations
+  \item Diffusion sur graphe, noyau de chaleur
+  \item Équation de Poisson discrète : apprentissage semi-supervisé
+  \item Courbure de graphe et topologie intuitive
+  \item Exemples : classification digits, segmentation
+  \item Applications modernes : NLP, bioinformatique
+    \item TP: Classification semi-supervisée sur graphes (ex : digits).
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Introduction =================
+\begin{frame}{Construction de graphes sur données}
+\begin{itemize}
+  \item Objectif : représenter les relations locales entre points d'un nuage de données.
+  \item Méthodes courantes :
+  \begin{enumerate}
+    \item \textbf{k-NN graph} : chaque point est relié à ses $k$ plus proches voisins.
+    \item \textbf{$\varepsilon$-graph} : relier tous les points dont la distance est inférieure à $\varepsilon$.
+  \end{enumerate}
+  \item Graphes pondérés : assigner un poids de similarité à chaque arête
+  \[
+    w_{ij} = \exp\Big(-\frac{\|x_i - x_j\|^2}{2\sigma^2}\Big)
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : k-NN vs ε-graph =================
+\begin{frame}{Exemple : k-NN vs $\varepsilon$-graph}
+\begin{itemize}
+  \item k-NN : garantit $k$ voisins par point, graphe potentiellement asymétrique (symétriser si nécessaire).
+  \item $\varepsilon$-graph : connecte tous les points à distance < $\varepsilon$, nombre de voisins variable.
+\end{itemize}
+
+\begin{center}
+\textbf{Schéma schématique :}
+
+\texttt{
+Points : $\bullet$ \\
+k-NN : chaque point relié à k voisins $\rightarrow$ lignes continues \\
+$\varepsilon$-graph : lignes selon distance $\varepsilon$ \\
+}
+\end{center}
+\end{frame}
+
+%================= Slide 3 : Graphe pondéré =================
+\begin{frame}{Graphes pondérés}
+\begin{itemize}
+  \item Utiliser des poids pour refléter la similarité :
+  \[
+    w_{ij} = \exp\Big(-\frac{\|x_i - x_j\|^2}{2\sigma^2}\Big)
+  \]
+  \item Propriétés :
+  \begin{itemize}
+    \item $w_{ij} \in (0,1]$, $w_{ii}=0$.
+    \item Capture la force de connexion locale.
+    \item Symétriser si nécessaire : $w_{ij} = w_{ji} = \max(w_{ij}, w_{ji})$ ou $\frac{w_{ij}+w_{ji}}{2}$.
+  \end{itemize}
+  \item Préparation pour Laplacien, diffusion et autres méthodes spectral-based.
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Définition du Laplacien =================
+\begin{frame}{Laplacien de graphe : définition}
+\begin{itemize}
+  \item Soit $G=(V,E,W)$ un graphe pondéré avec matrice de poids $W$ et matrice de degrés $D$ :
+    \[
+      D_{ii} = \sum_j w_{ij}
+    \]
+  \item Laplacien non normalisé :
+    \[
+      L = D - W
+    \]
+  \item Laplacien normalisé :
+    \[
+      L_\text{sym} = D^{-1/2} L D^{-1/2}, \quad
+      L_\text{rw} = D^{-1} L
+    \]
+  \item Propriétés :
+  \begin{itemize}
+    \item $L$ est semi-définie positive.
+    \item $\lambda_0 = 0$, vecteur propre constant $\mathbf{1}$.
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Interprétation =================
+\begin{frame}{Interprétation du Laplacien}
+\begin{itemize}
+  \item Analogue discret du Laplacien continu sur une variété.
+  \item Diffusion / propagation sur le graphe :
+    \[
+      f^\top L f = \frac{1}{2} \sum_{i,j} w_{ij} (f_i - f_j)^2
+    \]
+    - Petit $f^\top L f$ $\Rightarrow$ $f$ varie peu entre voisins fortement connectés.
+  \item Eigenmaps :
+    \begin{itemize}
+      \item Les vecteurs propres associés aux plus petites valeurs propres ($\lambda_1, \lambda_2,\dots$) capturent la structure globale du graphe.
+      \item Utilisés pour réduction de dimension ou clustering spectral.
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Schéma intuitif =================
+\begin{frame}{Laplacien : intuition graphique}
+\begin{itemize}
+  \item Chaque arête du graphe agit comme un ressort entre points.
+  \item Les valeurs propres et vecteurs propres du Laplacien capturent la \textbf{dynamique des flux} sur le graphe.
+\end{itemize}
+
+\begin{center}
+\texttt{
+$\bullet$---$\bullet$   $\bullet$---$\bullet$ \\
+|            |         |            | \\
+$\bullet$---$\bullet$   $\bullet$---$\bullet$ \\
+Flux : les différences $f_i-f_j$ tendent à se réduire via diffusion
+}
+\end{center}
+
+\end{frame}
+
+%================= Slide 1 : Diffusion sur graphe =================
+\begin{frame}{Diffusion sur graphe}
+\begin{itemize}
+  \item Soit un graphe pondéré $G=(V,E,W)$ avec matrice de transition
+    \[
+      P = D^{-1} W \quad \text{(random walk)}
+    \]
+  \item Diffusion d'une fonction $f$ sur le graphe :
+    \[
+      f(t+1) = P f(t)
+    \]
+  \item Intuition : la valeur de $f$ se propage le long des arêtes en fonction de leur poids.
+  \item Méthode symétrisée (pour propriétés spectrales) :
+    \[
+      P_\text{sym} = D^{-1/2} W D^{-1/2}
+    \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Noyau de chaleur discret =================
+\begin{frame}{Noyau de chaleur discret}
+\begin{itemize}
+  \item Noyau de chaleur : solution discrète de l'équation de diffusion
+    \[
+      H_t = e^{-tL} \approx \sum_{k=0}^{n-1} e^{-t \lambda_k} \phi_k \phi_k^\top
+    \]
+    où $(\lambda_k, \phi_k)$ sont les valeurs et vecteurs propres du Laplacien.
+  \item Interprétation :
+    \begin{itemize}
+      \item $H_t(i,j)$ mesure la diffusion de la chaleur de $i$ vers $j$ après temps $t$.
+      \item Les modes rapides (\(\lambda_k\) grands) décroissent rapidement.
+      \item Les modes lents (\(\lambda_k\) petits) dominent pour grandes échelles.
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Illustration =================
+\begin{frame}{Illustration de la diffusion sur graphe}
+\begin{itemize}
+  \item Initialisation : chaleur concentrée sur un ou quelques noeuds.
+  \item Après $t$ pas de diffusion : la chaleur se propage proportionnellement aux poids des arêtes.
+  \item Permet d’extraire des structures multi-échelle et de mesurer la proximité entre points.
+\end{itemize}
+
+\begin{center}
+\texttt{
+Noeud initial : $\bullet$ chaud \\
+Propagation : $\bullet$---$\bullet$ (valeurs augmentent) \\
+Flux : les voisins proches reçoivent progressivement la chaleur
+}
+\end{center}
+
+\end{frame}
+
+
+%================= Slide 1 : Apprentissage semi-supervisé sur graphe =================
+\begin{frame}{Apprentissage semi-supervisé : idée générale}
+\begin{itemize}
+  \item Objectif : propager des labels connus sur un petit sous-ensemble de points vers l'ensemble du graphe.
+  \item Notation :
+  \begin{itemize}
+    \item $X = \{x_1,\dots,x_n\}$ : points du graphe
+    \item $L$ : Laplacien du graphe
+    \item $Y_\ell$ : labels connus sur un sous-ensemble $\ell \subset \{1,\dots,n\}$
+    \item $f$ : fonction de labels à propager
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Équation de Poisson discrète =================
+\begin{frame}{Équation de Poisson discrète sur graphe}
+\begin{itemize}
+  \item Formulation :
+    \[
+      L f = 0 \quad \text{sur les points non étiquetés } u = V \setminus \ell
+    \]
+    avec conditions de Dirichlet :
+    \[
+      f_i = Y_i \quad \text{pour } i \in \ell
+    \]
+  \item Interprétation : trouver une fonction $f$ qui varie le moins possible entre voisins fortement connectés, tout en respectant les labels connus.
+  \item Solution pratique : résoudre le système linéaire restreint
+    \[
+      L_{uu} f_u = - L_{u\ell} Y_\ell
+    \]
+    où $L$ est partitionné selon $u$ (non-étiquetés) et $\ell$ (étiquetés).
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Illustration =================
+\begin{frame}{Propagation de labels sur graphe}
+\begin{itemize}
+  \item Graphe avec quelques points étiquetés (rouge/bleu)
+  \item Résultat : labels propagés vers tous les points via Poisson discrete
+  \item Intuition : labels se diffusent le long des arêtes pondérées
+\end{itemize}
+
+\begin{center}
+\texttt{
+$\bullet$ bleu     $\bullet$ rouge \\
+|  \ /  |          |  /  \| \\
+$\bullet$ ?       $\bullet$ ?   (labels propagés) \\
+}
+\end{center}
+
+\end{frame}
+
+%================= Slide 1 : Courbure de graphe =================
+\begin{frame}{Courbure de graphe : notion intuitive}
+\begin{itemize}
+  \item Concept inspiré de la courbure des surfaces continues.
+  \item Mesure comment les voisins d’un noeud sont connectés entre eux.
+  \item Idée :
+    \begin{itemize}
+      \item "Bottleneck" : points qui relient deux clusters → faible connectivité locale.
+      \item Graphes très "tordus" → distances de diffusion plus grandes entre certains points.
+    \end{itemize}
+  \item La courbure discrète peut guider :
+    \begin{itemize}
+      \item La détection de communautés
+      \item La compréhension des structures locales et globales
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Topologie et diffusion =================
+\begin{frame}{Topologie intuitive et diffusion}
+\begin{itemize}
+  \item Les graphes avec "bottlenecks" ralentissent la diffusion : la chaleur met plus de temps à traverser.
+  \item Les vecteurs propres du Laplacien capturent cette topologie :
+    \begin{itemize}
+      \item Petites valeurs propres → modes lents → grandes structures
+      \item Grandes valeurs propres → modes rapides → détails locaux
+    \end{itemize}
+  \item Exemple : deux clusters reliés par un petit nombre d’arêtes
+    \begin{itemize}
+      \item Distance de diffusion entre clusters > distance intra-cluster
+      \item Permet de détecter naturellement les communautés
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Illustration =================
+\begin{frame}{Illustration : bottleneck et diffusion}
+\begin{center}
+\texttt{
+Cluster A $\bullet$---$\bullet$---$\bullet$ \\
+                  | bottleneck | \\
+Cluster B $\bullet$---$\bullet$---$\bullet$ \\
+Diffusion : chaleur traverse lentement le bottleneck
+}
+\end{center}
+\begin{itemize}
+  \item La structure topologique influence les distances de diffusion et le comportement des méthodes spectral-based.
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Classification digits =================
+\begin{frame}{Exemple : classification de digits (MNIST)}
+\begin{itemize}
+  \item Construire un graphe k-NN ou $\varepsilon$-graph à partir des images.
+  \item Pondérer les arêtes par similarité (ex. distance Euclidienne ou cosine) :
+    \[
+      w_{ij} = \exp\Big(-\frac{\|x_i - x_j\|^2}{2\sigma^2}\Big)
+    \]
+  \item Appliquer Laplacian Eigenmaps ou diffusion sur graphe pour réduire la dimension :
+    \[
+      L = D - W, \quad L \phi_k = \lambda_k \phi_k
+    \]
+  \item Labels connus sur un petit sous-ensemble → Poisson discrete pour propagation
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Résultat embedding =================
+\begin{frame}{Résultat : embedding spectral}
+\begin{itemize}
+  \item Les vecteurs propres associés aux plus petites valeurs propres de $L$ fournissent un embedding 2D ou 3D.
+  \item Points proches dans l’espace réduit → images similaires (mêmes digits).
+  \item Semi-supervised : labels propagés par Poisson discrete sur graphe pondéré.
+\end{itemize}
+
+\begin{center}
+\texttt{
+Exemple schématique : \\
+0 0 0 1 1 1 2 2 2 ... \\
+Clusters de couleurs indiquent labels propagés
+}
+\end{center}
+\end{frame}
+
+%================= Slide 3 : Segmentation d'image =================
+\begin{frame}{Exemple : segmentation d'image}
+\begin{itemize}
+  \item Pixels = noeuds du graphe, arêtes = voisinage spatial et/ou similarité de couleur
+  \item Pondération : 
+    \[
+      w_{ij} = \exp\Big(-\frac{\|I_i - I_j\|^2}{2\sigma_c^2} - \frac{\|p_i - p_j\|^2}{2\sigma_s^2}\Big)
+    \]
+    où $I_i$ couleur et $p_i$ position du pixel $i$.
+  \item Appliquer diffusion / Poisson discrete pour propager labels initiaux (ex. superpixels, annotations)
+  \item Résultat : segmentation cohérente en clusters homogènes.
+\end{itemize}
+\end{frame}
+%================= Slide 1 : Applications en NLP =================
+\begin{frame}{Applications modernes : NLP}
+\begin{itemize}
+  \item Graphe de mots ou documents :
+    \begin{itemize}
+      \item Noeuds = mots ou documents
+      \item Arêtes = co-occurrence ou similarité sémantique
+    \end{itemize}
+  \item Pondération des arêtes par cosine similarity ou embedding pré-entraîné :
+    \[
+      w_{ij} = \frac{\langle v_i, v_j \rangle}{\|v_i\|\|v_j\|}
+    \]
+  \item Diffusion sur graphe pour :
+    \begin{itemize}
+      \item Propagation de labels (ex. classification de documents)
+      \item Extraction de communautés sémantiques
+      \item Représentations low-dimensional des mots ou documents
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Applications en bioinformatique =================
+\begin{frame}{Applications modernes : Bioinformatique}
+\begin{itemize}
+  \item Réseaux de gènes ou protéines :
+    \begin{itemize}
+      \item Noeuds = gènes / protéines
+      \item Arêtes = interactions ou corrélations
+    \end{itemize}
+  \item Utilisation :
+    \begin{itemize}
+      \item Propagation de labels (fonction connue de quelques gènes → prédiction pour les autres)
+      \item Clustering / détection de modules biologiques
+      \item Analyse multi-échelle via diffusion et valeurs propres du Laplacien
+    \end{itemize}
+  \item Exemples : propagation de pathologies, analyse de single-cell RNA-seq
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Résumé =================
+\begin{frame}{Module 2 : résumé}
+\begin{itemize}
+  \item Construction de graphes : k-NN, $\varepsilon$-graph, pondérés
+  \item Laplacien de graphe : définitions, interprétations et Eigenmaps
+  \item Diffusion et noyau de chaleur : distances multi-échelles, modes lents
+  \item Poisson discrete : propagation de labels (apprentissage semi-supervisé)
+  \item Courbure et topologie : bottlenecks, structures locales et globales
+  \item Exemples pratiques : classification de digits, segmentation d’images
+  \item Applications modernes : NLP, bioinformatique
+\end{itemize}
+\end{frame}
+
+
+%================= MODULE 3 =================
+\section{Module 3 : Motivation et limites des modèles classiques}
+
+\begin{frame}{Module 3 : plan}
+\begin{itemize}
+  \item Limites des modèles classiques : pas différentiables / scalables
+  \item Principe du Message passing
+  \item GCN, GAT : mécanismes principaux
+  \item Applications IA géométrique :
+  \begin{itemize}
+      \item Physique (simulation moléculaire)
+      \item Biologie (protéines)
+      \item IA générative (diffusion sur variétés)
+  \end{itemize}
+  \item Outils Python : PyTorch Geometric, DGL, Spektral
+  \item TP : Mini-GNN avec PyTorch Geometric ou Deep Graph Library. 
+\end{itemize}
+\end{frame}
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : pourquoi le deep learning géométrique ?}
+\begin{itemize}
+  \item Les données modernes sont souvent non-euclidiennes : graphes, maillages, variétés
+  \item Les modèles classiques (MLP, CNN) supposent une structure régulière :
+    \begin{itemize}
+      \item vecteurs fixes ou images 2D
+      \item pas adaptés à la topologie complexe
+    \end{itemize}
+  \item Objectif : apprendre des représentations sur des structures géométriques
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Limites des modèles classiques =================
+\begin{frame}{Limites des modèles classiques}
+\begin{itemize}
+  \item Pas différentiables sur graphes/variétés
+  \item Difficulté à capturer relations locales/globales non régulières
+  \item Scalabilité limitée à des structures complexes
+\end{itemize}
+
+\begin{center}
+\texttt{
+Vecteurs fixes / images 2D \\
+       | \\
+  Pas de propagation entre voisins arbitraires \\
+       | \\
+Graphe ou variété → besoin de modèles géométriques
+}
+\end{center}
+\end{frame}
+
+%================= Slide 3 : Comparatif =================
+\begin{frame}{Comparatif : classique vs géométrique}
+\begin{itemize}
+  \item MLP/CNN :
+    \begin{itemize}
+      \item Entrée : vecteurs fixes / pixels
+      \item Convolutions régulières
+      \item Limité aux grilles Euclidiennes
+    \end{itemize}
+  \item Deep Learning Géométrique :
+    \begin{itemize}
+      \item Entrée : graphes, points sur variété
+      \item Message passing / convolutions sur graphes
+      \item Exploite topologie et voisinage local
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Principe du message passing =================
+\begin{frame}{Message Passing : idée générale}
+\begin{itemize}
+  \item Chaque nœud met à jour sa représentation en agrégeant les informations de ses voisins.
+  \item Formule générale :
+  \[
+    h_i^{(l+1)} = \text{UPDATE}\Big(h_i^{(l)}, \text{AGGREGATE}(\{h_j^{(l)} : j \in \mathcal{N}(i)\})\Big)
+  \]
+  \item Trois composantes clés :
+  \begin{enumerate}
+    \item \textbf{Message} : $m_{ij} = \phi(h_i^{(l)}, h_j^{(l)}, e_{ij})$
+    \item \textbf{Agrégation} : somme/moyenne/max des messages
+    \item \textbf{Mise à jour} : $h_i^{(l+1)} = \psi(h_i^{(l)}, m_i)$
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Illustration schématique =================
+\begin{frame}{Illustration : propagation de messages}
+\begin{center}
+\texttt{
+      h2       h3 \\
+       \\      / \\
+        \\    /   \\
+         [ h1 ]  ← reçoit messages de ses voisins \\
+        /    \\
+      h4      h5
+}
+\end{center}
+\begin{itemize}
+  \item $h_1^{(l+1)}$ dépend de $h_1^{(l)}$ et de l’agrégation des messages venant de $h_2,h_3,h_4,h_5$.
+  \item Propagation couche par couche : information diffuse sur tout le graphe.
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Exemple concret =================
+\begin{frame}{Exemple simple}
+\begin{itemize}
+  \item Noeuds = personnes, attributs = âge initial
+  \item Agrégation = moyenne des âges des voisins
+  \item Mise à jour = moyenne pondérée de son âge et de ses voisins
+\end{itemize}
+\[
+  h_i^{(l+1)} = \tfrac{1}{2} h_i^{(l)} + \tfrac{1}{2} \frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} h_j^{(l)}
+\]
+\begin{itemize}
+  \item Après plusieurs itérations, chaque nœud possède une représentation influencée par ses voisins proches et éloignés.
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Graph Convolutional Network =================
+\begin{frame}{Graph Convolutional Network (GCN)}
+\begin{itemize}
+  \item Formule de base (Kipf & Welling 2017) :
+  \[
+    H^{(l+1)} = \sigma \Big( \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2} H^{(l)} W^{(l)} \Big)
+  \]
+  où :
+  \begin{itemize}
+    \item $\tilde{A} = A + I$ : matrice d’adjacence avec boucles
+    \item $\tilde{D}$ : matrice diagonale des degrés
+    \item $H^{(l)}$ : représentations des nœuds à la couche $l$
+    \item $W^{(l)}$ : poids entraînables
+  \end{itemize}
+  \item Normalisation symétrique évite l’explosion/vanishing.
+  \item Interprétation : moyenne pondérée des voisins + transformation linéaire.
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Exemple intuitif GCN =================
+\begin{frame}{Exemple intuitif : GCN}
+\begin{itemize}
+  \item Imagine un graphe de documents liés par des citations.
+  \item Chaque nœud = vecteur TF-IDF d’un document.
+  \item Un GCN agrège les vecteurs des voisins → information contextuelle.
+  \item Après plusieurs couches : un document est représenté par son contenu \textbf{et} celui des documents proches.
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Graph Attention Network (GAT) =================
+\begin{frame}{Graph Attention Network (GAT)}
+\begin{itemize}
+  \item Chaque voisin n’a pas la même importance !
+  \item Coefficients d’attention :
+  \[
+    \alpha_{ij} = \frac{ \exp \big( \text{LeakyReLU}(a^\top [W h_i \, \| \, W h_j]) \big) }
+                        { \sum_{k \in \mathcal{N}(i)} \exp \big( \text{LeakyReLU}(a^\top [W h_i \, \| \, W h_k]) \big) }
+  \]
+  \item Mise à jour :
+  \[
+    h_i^{(l+1)} = \sigma \left( \sum_{j \in \mathcal{N}(i)} \alpha_{ij} W h_j \right)
+  \]
+  \item Idée clé : pondération adaptative des voisins via mécanisme d’attention.
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Comparaison GCN vs GAT =================
+\begin{frame}{Comparaison GCN vs GAT}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{GCN}
+\begin{itemize}
+  \item Normalisation fixe (degré)
+  \item Voisins traités de façon uniforme
+  \item Simplicité, efficacité
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{GAT}
+\begin{itemize}
+  \item Pondération apprise entre voisins
+  \item Plus flexible et expressif
+  \item Coût de calcul plus élevé
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 11 : Deux approches =================
+\begin{frame}{Deux approches de la convolution sur graphe}
+\begin{itemize}
+  \item \textbf{Spectral} : basé sur la décomposition spectrale du Laplacien du graphe.
+  \item \textbf{Spatial} : basé sur l’agrégation locale des voisins (message passing).
+  \item Les deux approches sont équivalentes dans certains cas mais avec des compromis différents.
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Approche Spectrale =================
+\begin{frame}{Approche spectrale}
+\begin{itemize}
+  \item Laplacien normalisé : $L = I - D^{-1/2} A D^{-1/2}$
+  \item Décomposition en valeurs propres : $L = U \Lambda U^\top$
+  \item Convolution spectrale définie comme :
+  \[
+    g_\theta * x = U g_\theta(\Lambda) U^\top x
+  \]
+  où $g_\theta(\Lambda)$ agit comme un filtre en fréquence.
+  \item Avantage : interprétation en termes de fréquences du graphe.
+  \item Limites : coût élevé, dépend de la structure exacte du graphe.
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Approche Spatiale =================
+\begin{frame}{Approche spatiale}
+\begin{itemize}
+  \item Directement définir une agrégation des voisins :
+  \[
+    h_i^{(l+1)} = \sigma \Big( \sum_{j \in \mathcal{N}(i)} \frac{1}{c_{ij}} W h_j^{(l)} \Big)
+  \]
+  où $c_{ij}$ est un facteur de normalisation (ex: degré).
+  \item Interprétation : propagation de l’information comme dans le message passing.
+  \item Avantage : plus scalable, indépendant de la décomposition spectrale.
+  \item Limite : pas de contrôle explicite des fréquences.
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 : Comparaison Spectral vs Spatial =================
+\begin{frame}{Comparaison : spectral vs spatial}
+\begin{columns}
+\column{0.48\textwidth}
+\textbf{Spectral}
+\begin{itemize}
+  \item Basé sur le Laplacien
+  \item Analyse fréquentielle possible
+  \item Limité aux graphes fixes
+\end{itemize}
+
+\column{0.48\textwidth}
+\textbf{Spatial}
+\begin{itemize}
+  \item Agrégation des voisins
+  \item Plus intuitif et local
+  \item Fonctionne pour graphes dynamiques
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 15 : Applications de l’IA géométrique =================
+\begin{frame}{Applications de l’IA géométrique}
+\begin{itemize}
+  \item Les GNN et méthodes géométriques sont appliquées à des domaines variés :
+  \begin{enumerate}
+    \item Physique computationnelle (simulation moléculaire, dynamique des particules)
+    \item Biologie structurale (protéines, réseaux de gènes)
+    \item IA générative (diffusion sur variétés et graphes)
+  \end{enumerate}
+  \item Atout : respect des symétries, invariances et topologie des données.
+\end{itemize}
+\end{frame}
+
+%================= Slide 16 : Physique =================
+\begin{frame}{Physique : simulation moléculaire}
+\begin{itemize}
+  \item Molécules représentées comme graphes (atomes = nœuds, liaisons = arêtes).
+  \item GNN utilisés pour approximer :
+  \begin{itemize}
+    \item Énergies de configuration
+    \item Forces interatomiques
+  \end{itemize}
+  \item Exemple : \textbf{SchNet}, \textbf{PhysNet}, modèles équivariants SE(3).
+  \item Applications : accélération de la dynamique moléculaire, découverte de matériaux.
+\end{itemize}
+\end{frame}
+
+%================= Slide 17 : Biologie =================
+\begin{frame}{Biologie : protéines et génomique}
+\begin{itemize}
+  \item Protéines = graphes 3D d’acides aminés.
+  \item GNN → prédiction de structure, fonction, interactions.
+  \item Exemples :
+  \begin{itemize}
+    \item \textbf{AlphaFold} : géométrie + réseaux de neurones
+    \item GNN pour réseaux de régulation génétique
+  \end{itemize}
+  \item Impact : compréhension des maladies, conception de médicaments.
+\end{itemize}
+\end{frame}
+
+%================= Slide 18 : IA générative =================
+\begin{frame}{IA générative sur variétés et graphes}
+\begin{itemize}
+  \item Génération de graphes structurés :
+  \begin{itemize}
+    \item Molécules valides
+    \item Réseaux complexes
+  \end{itemize}
+  \item Méthodes récentes :
+  \begin{itemize}
+    \item Diffusion sur graphes
+    \item Score-based generative models
+  \end{itemize}
+  \item Applications : design de médicaments, génération de maillages 3D, chimie computationnelle.
+\end{itemize}
+\end{frame}
+
+%================= Slide 19 : Synthèse applications =================
+\begin{frame}{Synthèse des applications}
+\begin{itemize}
+  \item \textbf{Physique} : simulation moléculaire, dynamique des particules
+  \item \textbf{Biologie} : prédiction de structure de protéines, réseaux biologiques
+  \item \textbf{IA générative} : création de graphes complexes, molécules, géométries
+\end{itemize}
+\vspace{0.3cm}
+\textbf{Message clé} : les GNN exploitent la structure géométrique et topologique → meilleures généralisations et applications pratiques.
+\end{frame}
+
+%================= Slide 20 : Outils Python =================
+\begin{frame}{Outils Python pour l’IA géométrique}
+\begin{itemize}
+  \item Frameworks populaires :
+  \begin{enumerate}
+    \item \textbf{PyTorch Geometric (PyG)} : bibliothèque modulaire basée sur PyTorch
+    \item \textbf{DGL (Deep Graph Library)} : efficace, multi-backend
+    \item \textbf{Spektral} : intégré à TensorFlow/Keras
+  \end{enumerate}
+  \item Fournissent des implémentations de GCN, GAT, GraphSAGE, DiffPool, etc.
+  \item Support de grands graphes et du GPU.
+\end{itemize}
+\end{frame}
+
+%================= Slide 21 : PyTorch Geometric =================
+\begin{frame}[fragile]{Exemple : PyTorch Geometric}
+\begin{verbatim}
+import torch
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv
+
+class GCN(torch.nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(in_dim, hid_dim)
+        self.conv2 = GCNConv(hid_dim, out_dim)
+
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = self.conv2(x, edge_index)
+        return F.log_softmax(x, dim=1)
+\end{verbatim}
+\end{frame}
+
+%================= Slide 22 : DGL =================
+\begin{frame}[fragile]{Exemple : DGL (Deep Graph Library)}
+\begin{verbatim}
+import dgl
+import torch.nn as nn
+import torch.nn.functional as F
+from dgl.nn import GraphConv
+
+class GCN(nn.Module):
+    def __init__(self, in_dim, hid_dim, out_dim):
+        super().__init__()
+        self.conv1 = GraphConv(in_dim, hid_dim)
+        self.conv2 = GraphConv(hid_dim, out_dim)
+
+    def forward(self, g, features):
+        x = F.relu(self.conv1(g, features))
+        x = self.conv2(g, x)
+        return F.log_softmax(x, dim=1)
+\end{verbatim}
+\end{frame}
+
+%================= Slide 23 : Spektral =================
+\begin{frame}[fragile]{Exemple : Spektral (TensorFlow/Keras)}
+\begin{verbatim}
+import tensorflow as tf
+from spektral.layers import GCNConv
+
+class GCN(tf.keras.Model):
+    def __init__(self, out_dim):
+        super().__init__()
+        self.conv1 = GCNConv(16, activation="relu")
+        self.conv2 = GCNConv(out_dim, activation="softmax")
+
+    def call(self, inputs):
+        x, a = inputs
+        x = self.conv1([x, a])
+        return self.conv2([x, a])
+\end{verbatim}
+\end{frame}
+
+%================= Slide 24 : Synthèse outils =================
+\begin{frame}{Synthèse des outils Python}
+\begin{columns}
+\column{0.33\textwidth}
+\textbf{PyTorch Geometric}
+\begin{itemize}
+  \item Basé sur PyTorch
+  \item Grande communauté
+  \item Très flexible
+\end{itemize}
+
+\column{0.33\textwidth}
+\textbf{DGL}
+\begin{itemize}
+  \item Hautes performances
+  \item Multi-backend (PyTorch, MXNet, TensorFlow)
+  \item Optimisé pour graphes massifs
+\end{itemize}
+
+\column{0.33\textwidth}
+\textbf{Spektral}
+\begin{itemize}
+  \item Simple, basé sur Keras
+  \item Idéal pour prototypage rapide
+  \item Moins optimisé grands graphes
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%================= Slide 25 : Conclusion Module 3 =================
+\begin{frame}{Module 3 : Conclusion et perspectives}
+\begin{itemize}
+  \item Le deep learning géométrique permet de traiter :
+  \begin{itemize}
+    \item Données sur graphes, maillages et variétés
+    \item Relations locales et topologiques complexes
+  \end{itemize}
+  \item Techniques clés :
+  \begin{itemize}
+    \item Message passing et GNN (GCN, GAT)
+    \item Apprentissage spectral vs spatial
+    \item Exploitation de la structure pour IA générative et scientifique
+  \end{itemize}
+  \item Applications concrètes :
+  \begin{itemize}
+    \item Physique : simulation moléculaire
+    \item Biologie : protéines, réseaux génétiques
+    \item IA générative : diffusion sur graphes/variétés
+  \end{itemize}
+  \item Outils Python modernes pour implémenter facilement ces modèles :
+  \textbf{PyTorch Geometric, DGL, Spektral}
+  \item \textbf{Ouverture} : vers l’optimisation, l’IA générative avancée et l’intégration avec HPC.
+\end{itemize}
+\end{frame}
+
+
+%================= MODULE 4 =================
+\section{Module 4 : Topologie des données}
+
+\begin{frame}{Module 4 : plan}
+\begin{itemize}
+  \item Introduction à la topologie des données
+  \item Variétés riemanniennes
+  \item Transport optimal
+  \item Applications à l’IA générative
+  \item TP : Mapper (KeplerMapper), mini-projet transport optimal (POT library).
+\end{itemize}
+\end{frame}
+%================= Slide 26 : Topologie des données =================
+\begin{frame}{Topologie des données}
+\begin{itemize}
+  \item Étudier la forme globale des données : trous, cycles, composantes
+  \item Techniques :
+  \begin{enumerate}
+    \item \textbf{Mapper} : visualisation simplifiée d’un nuage de points
+    \item \textbf{Persistent Homology} : détecter des features topologiques robustes
+  \end{enumerate}
+  \item Diagramme de persistance : barres représentant la durée de vie des composantes
+\end{itemize}
+\end{frame}
+
+%================= Slide 27 : Exemple diagramme de persistance =================
+\begin{frame}{Exemple : Persistent Homology}
+\begin{center}
+\texttt{
+Points → Graph simplicial → Filtration → Barcodes
+}
+\begin{itemize}
+  \item Chaque barre = un trou ou composante connectée
+  \item Longue barre → feature robuste
+  \item Courte barre → bruit
+\end{itemize}
+\end{center}
+\end{frame}
+
+%================= Slide 28 : Variétés riemanniennes =================
+\begin{frame}{Variétés riemanniennes}
+\begin{itemize}
+  \item Une variété lisse $(\mathcal{M}, g)$ avec métrique $g$ définit longueur et angles
+  \item Distance géodésique $d_\mathcal{M}(x,y)$ = longueur minimale d’un chemin sur $\mathcal{M}$
+  \item Exemples : sphère, tore, espace de rotations SO(3)
+  \item Applications : données sur sphère, pose 3D, embedding non-linéaire
+\end{itemize}
+\end{frame}
+
+%================= Slide 29 : Transport optimal =================
+\begin{frame}{Transport optimal}
+\begin{itemize}
+  \item Comparer deux distributions $\mu$ et $\nu$
+  \item Distance de Wasserstein :
+  \[
+    W_p(\mu, \nu) = \Bigg( \inf_{\gamma \in \Pi(\mu, \nu)} \int \|x - y\|^p d\gamma(x,y) \Bigg)^{1/p}
+  \]
+  \item Applications :
+  \begin{itemize}
+    \item Comparaison distributions réelles vs générées
+    \item Génération de données réalistes avec structures géométriques
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 30 : IA générative et OT =================
+\begin{frame}{Applications à l’IA générative}
+\begin{itemize}
+  \item Score-based diffusion : génération par gradient de log-densité
+  \item Transport optimal : mesurer distances entre distributions générées et réelles
+  \item Topologie persistante : régulariser génération pour préserver cycles/structures
+  \item Graphes et variétés : génération de molécules, maillages 3D, images structurées
+\end{itemize}
+\end{frame}
+
+%================= Slide 31 : Synthèse =================
+\begin{frame}{Module 4 : synthèse}
+\begin{itemize}
+  \item Topologie : Mapper, Persistent Homology → analyser la forme globale des données
+  \item Géométrie avancée : variétés riemanniennes et distances géodésiques
+  \item Transport optimal : distance de Wasserstein pour comparer distributions
+  \item Applications IA générative : score-based diffusion, OT, régularisation topologique
+\end{itemize}
+\end{frame}
+
+
+\section{ Module 5 : IA générative} 
+\subsection{ 5.1 Introduction aux modèles génératifs (VAE, GAN, Flows)} 
+\begin{frame}{Introduction aux modèles génératifs (VAE, GAN, Flows) : plan}
+\begin{itemize}
+  \item Introduction aux modèles génératifs (VAE, GAN, Flows)
+  \item Définition d’un modèle génératif
+  \item VAE : principe, encodage/décodage, régularisation KL
+  \item VAE : formule de l’ELBO et explication mathématique
+  \item Exemple concret VAE : génération de chiffres MNIST
+  \item GAN : principe, adversarial loss
+  \item GAN : architecture générateur/discriminateur
+  \item GAN : problèmes de convergence et techniques d’amélioration
+  \item Flows : définition et motivation (transformation bijective)
+  \item Flows : formule du changement de variables
+  \item Flows : exemple simple (RealNVP, Glow)
+  \item Comparaison VAE / GAN / Flows
+  \item Applications pratiques : images, texte, molécules
+  \item Évaluation : log-likelihood, FID, inception score
+  \item Limites et challenges des modèles classiques
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : Pourquoi les modèles génératifs ?}
+\begin{itemize}
+  \item Générer de nouvelles données réalistes : images, texte, audio
+  \item Comprendre la distribution sous-jacente des données
+  \item Applications :
+    \begin{itemize}
+      \item Synthèse d’images (DeepFake, art AI)
+      \item Génération de molécules ou structures 3D
+      \item Data augmentation pour apprentissage supervisé
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Définition d’un modèle génératif =================
+\begin{frame}{Définition d’un modèle génératif}
+\begin{itemize}
+  \item Objectif : approximer la distribution de données $p_\text{data}(x)$
+  \item Modèle paramétrique $p_\theta(x)$ ou transformée déterministe $x=f_\theta(z)$
+  \item Deux grandes approches :
+    \begin{itemize}
+      \item \textbf{Explicit likelihood} : VAE, Flows
+      \item \textbf{Implicit likelihood} : GAN
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : VAE principe =================
+%================= Slide VAE 1 : Motivation =================
+\begin{frame}{Variational AutoEncoder (VAE) : motivation}
+\begin{itemize}
+  \item Objectif : apprendre une représentation latente $z$ continue de données $x$
+  \item Permet :
+    \begin{itemize}
+      \item Génération de nouvelles données réalistes
+      \item Réduction de dimensionnalité probabiliste
+      \item Exploration et manipulation de l’espace latent
+    \end{itemize}
+  \item Contraintes : différentiabilité, espace latent régulier
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 2 : Pourquoi “variational” =================
+\begin{frame}{Pourquoi “Variational” ?}
+\begin{itemize}
+  \item Approche bayésienne : approximer la distribution postérieure $p_\theta(z|x)$
+  \item Directement $p_\theta(z|x)$ est intractable
+  \item Solution : utiliser une distribution approchée $q_\phi(z|x)$
+  \item Optimisation via \textbf{Variational Inference} :
+  \[
+    \text{ELBO} = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - \text{KL}(q_\phi(z|x) || p(z))
+  \]
+  \item “Variational” = on optimise une borne inférieure sur la log-vraisemblance
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 3 : Encoder =================
+\begin{frame}{Encoder : $q_\phi(z|x)$}
+\begin{itemize}
+  \item Mappe $x$ vers un vecteur latent $z$
+  \item Approximé par une distribution Gaussienne :
+  \[
+    q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \text{diag}(\sigma_\phi^2(x)))
+  \]
+  \item \textbf{Reparameterization trick} pour différentiabilité :
+  \[
+    z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon, \quad \epsilon \sim \mathcal{N}(0,I)
+  \]
+  \item Avantage : on peut backpropager à travers $z$ pour entraîner $\phi$
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 4 : Decoder =================
+\begin{frame}{Decoder : $p_\theta(x|z)$}
+\begin{itemize}
+  \item Reconstruit $x$ à partir du vecteur latent $z$
+  \item Paramétré par un réseau neuronal (feedforward ou convolutionnel)
+  \item Modélise la probabilité conditionnelle $p_\theta(x|z)$
+  \item Génère $\hat{x}$ ressemblant à $x$ en sortie
+  \item Schéma conceptuel :
+  \begin{center}
+    $z \rightarrow \text{Decoder} \rightarrow \hat{x}$
+  \end{center}
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 5 : Fonction de perte =================
+\begin{frame}{Loss function : ELBO}
+\begin{itemize}
+  \item Evidence Lower Bound (ELBO) :
+  \[
+    \mathcal{L}(\theta, \phi; x) = 
+      \underbrace{\mathbb{E}_{z \sim q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction}} 
+      - \underbrace{\text{KL}(q_\phi(z|x) || p(z))}_{\text{régularisation}}
+  \]
+  \item Reconstruction : rapproche $\hat{x}$ de $x$
+  \item KL : force $q_\phi(z|x)$ proche de prior $p(z)$, régularise espace latent
+  \item Optimisation via gradient descent sur $\theta$ et $\phi$
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 6 : Schéma global =================
+\begin{frame}{VAE : schéma global}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{vae_full_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $x \rightarrow$ Encoder $q_\phi(z|x) \rightarrow z$
+  \item $z \rightarrow$ Decoder $p_\theta(x|z) \rightarrow \hat{x}$
+  \item Loss : reconstruction + KL
+  \item Espace latent régulier et continu → génération et interpolation
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 7 : Visualisation espace latent =================
+\begin{frame}{Visualisation espace latent}
+\begin{itemize}
+  \item Exemple MNIST : encoder 784D → 2D latent
+  \item Nuage de points : chaque chiffre coloré différemment
+  \item Interpolation linéaire dans latent → génération continue de chiffres
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.6\textwidth]{vae_latent_mnist.png}
+\end{center}
+\end{frame}
+
+%================= Slide VAE 8 : Synthèse =================
+\begin{frame}{Synthèse VAE}
+\begin{itemize}
+  \item Variational AutoEncoder = combinaison de :
+    \begin{itemize}
+      \item Encoder probabiliste
+      \item Decoder génératif
+      \item Loss ELBO (reconstruction + KL)
+    \end{itemize}
+  \item “Variational” : approximation de la postérieure via optimisation variationnelle
+  \item Applications : génération d’images, réduction de dimensionnalité, interpolation dans l’espace latent
+\end{itemize}
+\end{frame}
+
+
+%================= Slide 4 : Exemple concret VAE =================
+\begin{frame}{Exemple concret : VAE MNIST}
+\begin{itemize}
+  \item Encoder : 784 → 64 → 2D latent
+  \item Decoder : 2D latent → 64 → 784
+  \item Visualisation : nuage de points latent → génération de chiffres
+  \item Avantage : structure continue de l’espace latent
+\end{itemize}
+\end{frame}
+
+
+%================= Slide GAN 1 : Motivation =================
+\begin{frame}{Generative Adversarial Networks (GAN) : motivation}
+\begin{itemize}
+  \item Objectif : générer des échantillons réalistes à partir de bruit latent
+  \item Utilisé pour :
+    \begin{itemize}
+      \item Images : photoréalistes ou artistiques
+      \item Audio, musique, vidéo
+      \item Données synthétiques pour apprentissage supervisé
+    \end{itemize}
+  \item Problème classique : réseaux génératifs simples → blurry, distribution approximative
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 2 : Architecture =================
+\begin{frame}{Architecture GAN}
+\begin{itemize}
+  \item Deux réseaux en compétition :
+    \begin{itemize}
+      \item \textbf{Generator $G(z)$} : prend $z \sim p_z$ (bruit) et génère $\hat{x}$
+      \item \textbf{Discriminator $D(x)$} : différencie $x \sim p_\text{data}$ et $\hat{x} \sim G(z)$
+    \end{itemize}
+  \item Jeu à somme nulle (adversarial)
+  \[
+    \min_G \max_D \, \mathbb{E}_{x\sim p_\text{data}}[\log D(x)] + 
+      \mathbb{E}_{z\sim p_z}[\log(1 - D(G(z)))]
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 3 : Fonctionnement étape par étape =================
+\begin{frame}{Fonctionnement étape par étape}
+\begin{enumerate}
+  \item Générateur produit un batch d’échantillons $\hat{x} = G(z)$
+  \item Discriminateur évalue probabilité de vrai/faux
+  \item Backpropagation sur $D$ pour distinguer vrai/faux
+  \item Backpropagation sur $G$ pour tromper $D$ (maximize $\log D(G(z))$)
+  \item Répéter jusqu’à convergence
+\end{enumerate}
+\end{frame}
+
+%================= Slide GAN 4 : Schéma conceptuel =================
+\begin{frame}{Schéma conceptuel GAN}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{gan_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $z \rightarrow G \rightarrow \hat{x} \rightarrow D \rightarrow$ verdict
+  \item D tente de distinguer réel vs généré
+  \item G tente de tromper D
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 5 : Points importants =================
+\begin{frame}{Points importants et difficultés}
+\begin{itemize}
+  \item Mode collapse : G génère un petit nombre de modes
+  \item Instabilité : oscillations durant l’entraînement
+  \item Solutions :
+    \begin{itemize}
+      \item Wasserstein GAN : utiliser distance Wasserstein
+      \item Gradient penalty, batch norm, label smoothing
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 6 : Applications =================
+\begin{frame}{Applications GAN}
+\begin{itemize}
+  \item Image synthesis : photoréaliste, anime, art
+  \item Super-resolution : améliorer résolution d’images
+  \item Data augmentation : synthèse pour apprentissage supervisé
+  \item Audio et musique : génération de sons, voix
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 7 : Visualisation d’exemples =================
+\begin{frame}{Exemple de génération GAN}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{gan_samples.png}
+\end{center}
+\begin{itemize}
+  \item Comparaison réel vs généré
+  \item Observer diversité et qualité
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 8 : Synthèse =================
+\begin{frame}{Synthèse GAN}
+\begin{itemize}
+  \item Deux réseaux en compétition : Generator et Discriminator
+  \item Jeu min-max → optimisation adversariale
+  \item Points clés : mode collapse, instabilité, solutions modernes
+  \item Applications variées : images, audio, données synthétiques
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : GAN principe =================
+\begin{frame}{Generative Adversarial Networks (GAN)}
+\begin{itemize}
+  \item Deux réseaux en compétition :
+    \begin{itemize}
+      \item \textbf{G} : générateur, produit $x = G(z)$
+      \item \textbf{D} : discriminateur, distingue $x_\text{réel}$ et $x_\text{fake}$
+    \end{itemize}
+  \item Loss adversariale :
+  \[
+    \min_G \max_D \mathbb{E}_{x \sim p_\text{data}}[\log D(x)] 
+    + \mathbb{E}_{z \sim p(z)}[\log(1-D(G(z)))]
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : GAN architecture =================
+\begin{frame}{Architecture GAN}
+\begin{center}
+\texttt{
+Random noise z → [G] → x_fake → [D] → Probabilité fake ou réel
+}
+\begin{itemize}
+  \item G apprend à tromper D
+  \item D apprend à détecter les faux
+  \item Entraînement alterné G/D
+\end{itemize}
+\end{center}
+\end{frame}
+
+%================= Slide 7 : GAN challenges =================
+\begin{frame}{Challenges GAN}
+\begin{itemize}
+  \item Instabilité de l’entraînement
+  \item Mode collapse : G produit peu de variations
+  \item Techniques d’amélioration :
+    \begin{itemize}
+      \item Wasserstein GAN
+      \item Gradient penalty
+      \item Label smoothing
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 1 : Motivation =================
+\begin{frame}{Normalizing Flows : motivation}
+\begin{itemize}
+  \item Objectif : modéliser des distributions complexes via transformations bijectives simples
+  \item Avantages :
+    \begin{itemize}
+      \item Likelihood exacte
+      \item Génération de données et évaluation de densité
+      \item Différentiable et entraînable par gradient
+    \end{itemize}
+  \item Applications : génération d’images, audio, densités multi-dimensionnelles
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 2 : Principe =================
+\begin{frame}{Principe des Normalizing Flows}
+\begin{itemize}
+  \item Transformer une distribution simple $z \sim p_Z(z)$ en distribution complexe $x \sim p_X(x)$
+  \item Via une suite de transformations bijectives :
+  \[
+    x = f_K \circ f_{K-1} \circ \dots \circ f_1(z)
+  \]
+  \item Densité exacte via la formule du changement de variable :
+  \[
+    p_X(x) = p_Z(z) \prod_{k=1}^{K} \Big| \det \frac{\partial f_k}{\partial h_{k-1}} \Big|^{-1}
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 3 : Transformation bijective =================
+\begin{frame}{Transformation bijective simple}
+\begin{itemize}
+  \item Chaque $f_k$ : transformation bijective et différentiable
+  \item Exemples :
+    \begin{itemize}
+      \item Affine coupling layers (RealNVP)
+      \item Actnorm, 1x1 convolutions (Glow)
+    \end{itemize}
+  \item Calcul du déterminant jacobien facile pour tractabilité
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 4 : Schéma conceptuel =================
+\begin{frame}{Schéma conceptuel des Flows}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{normalizing_flow_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $z \sim \mathcal{N}(0,I)$ → transformations successives $f_1, f_2, ..., f_K$ → $x$
+  \item Densité de $x$ exacte via determinant jacobien
+  \item Génération et likelihood : deux opérations inverses simples
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 5 : Fonction de perte =================
+\begin{frame}{Loss function : Maximum Likelihood}
+\begin{itemize}
+  \item Objectif : maximiser log-likelihood sur données
+  \[
+    \max_\theta \sum_{i=1}^N \log p_X(x_i) = \sum_{i=1}^N \Big[ \log p_Z(z_i) - \sum_{k=1}^{K} \log \Big|\det \frac{\partial f_k}{\partial h_{k-1}}\Big| \Big]
+  \]
+  \item Optimisation directe via backpropagation
+  \item Avantage : pas de perte adversariale, pas d’instabilité comme GAN
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 6 : Inversion =================
+\begin{frame}{Génération et inversion}
+\begin{itemize}
+  \item Génération : $z \sim p_Z(z)$ → $x = f_K \circ ... \circ f_1(z)$
+  \item Inversion : $x$ donné → $z = f_1^{-1} \circ ... \circ f_K^{-1}(x)$
+  \item Permet sampling et évaluation de densité
+  \item Schéma :
+  \begin{center}
+    $z \leftrightarrow x$ via Flow
+  \end{center}
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 7 : Applications =================
+\begin{frame}{Applications des Normalizing Flows}
+\begin{itemize}
+  \item Génération d’images et d’audio
+  \item Modélisation de densités multi-dimensionnelles
+  \item Approximation de posterior en bayésien (variational inference)
+  \item Pré-processing ou génération de features pour modèles downstream
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 8 : Synthèse =================
+\begin{frame}{Synthèse : Normalizing Flows}
+\begin{itemize}
+  \item Transformer une distribution simple en complexe via bijections différentiables
+  \item Likelihood exacte, entraînement stable
+  \item Complète VAE et GAN : avantages différents
+  \item Applications variées et flexible pour IA générative
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Flows introduction =================
+\begin{frame}{Normalizing Flows : introduction}
+\begin{itemize}
+  \item Transformation bijective $x = f_\theta(z)$
+  \item Distribution exacte via changement de variables :
+  \[
+    p_\theta(x) = p(z) \left| \det \frac{\partial f_\theta^{-1}}{\partial x} \right|
+  \]
+  \item Avantages : likelihood exacte, sampling direct
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Exemple Flow =================
+\begin{frame}{Exemple Flow : RealNVP}
+\begin{itemize}
+  \item Couche affine bijective : $y = s(x)\odot x + t(x)$
+  \item Chaîne de transformations → modèle complexe
+  \item Applications : génération d’images, densité estimation
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Comparaison VAE / GAN / Flows =================
+\begin{frame}{Comparaison des modèles génératifs}
+\begin{tabular}{|l|c|c|c|}
+\hline
+Modèle & Likelihood & Latent & Sampling \\
+\hline
+VAE & explicite & continu & direct \\
+GAN & implicite & non défini & via G \\
+Flow & explicite & continu & direct \\
+\hline
+\end{tabular}
+\begin{itemize}
+  \item VAE : stabilité mais blurry samples
+  \item GAN : samples réalistes mais instables
+  \item Flow : exact likelihood mais plus coûteux
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 : Applications =================
+\begin{frame}{Applications des modèles génératifs}
+\begin{itemize}
+  \item Images : MNIST, CIFAR, CelebA
+  \item Texte : GPT, Transformer VAE
+  \item Audio : WaveGAN, Flow-based TTS
+  \item Chimie : génération de molécules, protéines
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Évaluation =================
+\begin{frame}{Évaluation des modèles génératifs}
+\begin{itemize}
+  \item Log-likelihood
+  \item Frechet Inception Distance (FID)
+  \item Inception score
+  \item Qualité subjective et diversité
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Limitations =================
+\begin{frame}{Limitations et challenges}
+\begin{itemize}
+  \item VAE : échantillons flous
+  \item GAN : instabilité, mode collapse
+  \item Flows : complexité computationnelle
+  \item Défi global : générer des données structurées, respecter contraintes
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 à 30 : Études de cas et exercices =================
+\begin{frame}{Étude de cas : VAE sur MNIST}
+\begin{itemize}
+  \item Encoder 784→64→2D latent
+  \item Decoder 2D latent→784
+  \item Exercice : visualiser le latent, générer de nouveaux chiffres
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice GAN simple}
+\begin{itemize}
+  \item Implémenter un GAN sur MNIST ou FashionMNIST
+  \item Observer mode collapse et tenter WGAN ou gradient penalty
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice Flow}
+\begin{itemize}
+  \item Implémenter RealNVP simple sur un dataset 2D toy
+  \item Visualiser la transformation bijective et densité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-exemple VAE + GAN}
+\begin{itemize}
+  \item Comparer échantillons VAE vs GAN sur FashionMNIST
+  \item Noter différences de qualité et diversité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-exemple Flow}
+\begin{itemize}
+  \item Appliquer Flow sur données 2D simples
+  \item Visualiser densité exacte et échantillons
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé Sous-section 1}
+\begin{itemize}
+  \item VAE : latent continu, ELBO, reconstruction
+  \item GAN : générateur/adversaire, loss implicite
+  \item Flow : transformation bijective, likelihood exacte
+  \item Applications : images, texte, audio, chimie
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Préparer transition vers diffusion models}
+\begin{itemize}
+  \item Limites des modèles classiques : blurry, mode collapse, complexité
+  \item Motivation pour diffusion models et modèles fondation
+\end{itemize}
+\end{frame}
+
+
+\subsection{ 5.2 Diffusion models et modèles fondation (GPT, Stable Diffusion, etc)} 
+\begin{frame}{Diffusion models et modèles fondation (GPT, Stable Diffusion, etc) : plan}
+\begin{itemize}
+  \item Introduction : motivation des diffusion models
+  \item Processus de diffusion : forward noising process
+  \item Processus de reverse denoising
+  \item Loss fonctionnelle : score matching
+  \item Architecture typique : U-Net
+  \item Exemples d’application : images, audio, molécules
+  \item Stable Diffusion : workflow, text-to-image
+  \item GPT / LLM : modèle autoregressif, transformer
+  \item Embeddings et attention mechanism
+  \item Exemples d’usage GPT : génération texte, code
+  \item Diffusion vs GAN vs VAE : comparaison
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 1 : Motivation =================
+\begin{frame}{Diffusion Models : motivation}
+\begin{itemize}
+  \item Nouveaux modèles génératifs (2020+) surpassant GAN/VAE sur qualité d’image
+  \item Idée clé : générer en inversant un processus de diffusion bruité
+  \item Avantages :
+    \begin{itemize}
+      \item Échantillons haute qualité
+      \item Apprentissage stable (pas de min-max adversarial)
+      \item Flexibilité (conditionnement, multimodalité)
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 2 : Principe =================
+\begin{frame}{Principe des Diffusion Models}
+\begin{itemize}
+  \item Processus avant (forward) : bruit progressif
+  \[
+    q(x_t | x_{t-1}) = \mathcal{N}\big(x_t; \sqrt{1-\beta_t} \, x_{t-1}, \, \beta_t I\big)
+  \]
+  \item Processus inverse (backward) : apprendre à débruiter
+  \[
+    p_\theta(x_{t-1} | x_t) = \mathcal{N}\big(x_{t-1}; \mu_\theta(x_t, t), \, \Sigma_\theta(x_t, t)\big)
+  \]
+  \item L’IA apprend à approximer la dynamique inverse
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 3 : Forward Process =================
+\begin{frame}{Forward process : ajout de bruit}
+\begin{itemize}
+  \item On part d’une donnée réelle $x_0$
+  \item On ajoute progressivement du bruit gaussien sur $T$ étapes
+  \item Après assez d’étapes : $x_T \sim \mathcal{N}(0,I)$ (pure noise)
+\end{itemize}
+\[
+q(x_t|x_0) = \mathcal{N}\big(x_t; \sqrt{\bar{\alpha}_t} x_0, (1-\bar{\alpha}_t)I\big)
+\]
+\begin{center}
+\includegraphics[width=0.7\textwidth]{diffusion_forward.png}
+\end{center}
+\end{frame}
+
+%================= Slide Diffusion 4 : Reverse Process =================
+\begin{frame}{Reverse process : apprentissage}
+\begin{itemize}
+  \item Objectif : échantillonner $x_{t-1}$ à partir de $x_t$
+  \item Approximé par un réseau neuronal $\epsilon_\theta(x_t, t)$
+  \item Intuition : apprendre à prédire et enlever le bruit
+\end{itemize}
+\[
+p_\theta(x_{t-1}|x_t) \approx \mathcal{N}\big(x_{t-1}; \tfrac{1}{\sqrt{\alpha_t}}(x_t - \tfrac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t,t)), \, \beta_t I \big)
+\]
+\end{frame}
+
+%================= Slide Diffusion 5 : Loss Function =================
+\begin{frame}{Fonction de perte simplifiée}
+\begin{itemize}
+  \item Loss d’entraînement = MSE entre bruit réel et bruit prédit
+\end{itemize}
+\[
+\mathcal{L}_{\text{simple}}(\theta) = \mathbb{E}_{x_0, t, \epsilon}\Big[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\Big]
+\]
+\begin{itemize}
+  \item $x_t$ est une version bruitée de $x_0$
+  \item $\epsilon$ est le bruit ajouté
+  \item $\epsilon_\theta(x_t, t)$ = prédiction du réseau
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 6 : Sampling =================
+\begin{frame}{Sampling avec Diffusion Models}
+\begin{itemize}
+  \item Étapes de sampling :
+    \begin{enumerate}
+      \item Tirer $x_T \sim \mathcal{N}(0,I)$
+      \item Appliquer séquentiellement $p_\theta(x_{t-1}|x_t)$
+      \item Obtenir $x_0$ (image générée)
+    \end{enumerate}
+  \item Processus lent (1000 étapes typiques)
+  \item Optimisation : DDIM, samplers accélérés
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 7 : Comparaison avec GAN/VAE =================
+\begin{frame}{Comparaison : Diffusion vs GAN/VAE}
+\begin{itemize}
+  \item GAN : échantillons rapides, mais entraînement instable
+  \item VAE : entraînement stable, mais qualité floue
+  \item Diffusion : entraînement stable + haute qualité, mais sampling coûteux
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{vae_gan_diffusion.png}
+\end{center}
+\end{frame}
+
+%================= Slide Diffusion 8 : Applications =================
+\begin{frame}{Applications des Diffusion Models}
+\begin{itemize}
+  \item Génération d’images (Stable Diffusion, Imagen, DALL·E 3)
+  \item Audio et musique (AudioLM, Riffusion)
+  \item Modélisation moléculaire, biologie (AlphaFold avec diffusion)
+  \item IA multimodale (texte → image, image → 3D, vidéo générative)
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 9 : Variantes =================
+\begin{frame}{Extensions et variantes}
+\begin{itemize}
+  \item Score-based models (SDE + Langevin dynamics)
+  \item Diffusion déterministe (DDIM)
+  \item Latent diffusion models (Stable Diffusion) : diffusion dans un espace latent
+  \item Conditionnement : texte, étiquettes, audio, structures
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 10 : Synthèse =================
+\begin{frame}{Synthèse : Diffusion Models}
+\begin{itemize}
+  \item Apprentissage d’un processus inverse au bruit gaussien
+  \item Entraînement stable via prédiction du bruit
+  \item Échantillons haute qualité mais sampling coûteux
+  \item Révolution dans l’IA générative moderne
+\end{itemize}
+\end{frame}
+
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : Pourquoi les diffusion models ?}
+\begin{itemize}
+  \item Génération de données de haute qualité (images, audio, molécules)
+  \item Modèles stables et contrôlables, surmontant certains problèmes des GAN
+  \item Applications : text-to-image, audio synthesis, IA générative scientifique
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Processus de diffusion =================
+\begin{frame}{Diffusion Models : processus de diffusion}
+\begin{itemize}
+  \item Forward process : ajout progressif de bruit à une donnée $x_0$
+  \[
+    q(x_t|x_{t-1}) = \mathcal{N}(\sqrt{1-\beta_t}x_{t-1}, \beta_t I)
+  \]
+  \item Transforme distribution originale en bruit pur
+  \item Objectif : apprendre à inverser ce processus
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Reverse denoising =================
+\begin{frame}{Reverse process : génération}
+\begin{itemize}
+  \item Reverse process : retirer le bruit pas à pas
+  \[
+    p_\theta(x_{t-1}|x_t) \approx \mathcal{N}(\mu_\theta(x_t,t), \Sigma_\theta(x_t,t))
+  \]
+  \item Réseau entraîné à prédire le bruit ou la distribution conditionnelle
+  \item Génération finale : $x_0$ à partir de $x_T \sim \mathcal{N}(0,I)$
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Loss fonctionnelle =================
+\begin{frame}{Loss fonctionnelle : score matching}
+\begin{itemize}
+  \item Objectif : prédire bruit $\epsilon$ ajouté
+  \[
+    L(\theta) = \mathbb{E}_{x_0, \epsilon, t} \| \epsilon - \epsilon_\theta(x_t,t) \|^2
+  \]
+  \item Optimisation via backpropagation
+  \item Permet un training stable comparé aux GAN
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Architecture typique =================
+\begin{frame}{Architecture typique : U-Net}
+\begin{itemize}
+  \item Encodeur-décodeur avec skip connections
+  \item Conditionnement sur timestep $t$
+  \item Peut être combiné avec attention (Transformer-like)
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Exemples d’application =================
+\begin{frame}{Exemples d’application des diffusion models}
+\begin{itemize}
+  \item Images : MNIST, CIFAR, ImageNet
+  \item Audio : génération de musique ou voix
+  \item Molécules : génération de structures chimiques
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Stable Diffusion =================
+\begin{frame}{Stable Diffusion}
+\begin{itemize}
+  \item Text-to-image diffusion model
+  \item Conditionnement sur embeddings textuels (CLIP)
+  \item Workflow :
+  \begin{enumerate}
+    \item Encode texte → embedding
+    \item Noising forward process sur image
+    \item Denoising reverse process conditionné par texte
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+
+%================= Slide FM 1 : Introduction =================
+\begin{frame}{Modèles Fondations : Introduction}
+\begin{itemize}
+  \item Définition : modèles entraînés sur de larges corpus génériques, réutilisables pour de multiples tâches
+  \item Exemples :
+    \begin{itemize}
+      \item LLM (GPT-4, LLaMA, Mistral) pour le texte
+      \item Stable Diffusion, Imagen pour les images
+      \item AudioLM, MusicGen pour l’audio
+    \end{itemize}
+  \item Idée clé : pré-entraînement massif + fine-tuning ou prompting
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 2 : Caractéristiques =================
+\begin{frame}{Caractéristiques des Modèles Fondations}
+\begin{itemize}
+  \item Taille massive (milliards de paramètres)
+  \item Données hétérogènes (texte, image, code, multimodal)
+  \item Capacité d’émergence : comportements non anticipés
+  \item Adaptabilité via prompt engineering ou fine-tuning
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 3 : GPT et LLM =================
+\begin{frame}{LLM : GPT et Transformers}
+\begin{itemize}
+  \item Architecture Transformer (auto-attention)
+  \item Pré-entraînement : prédire le token suivant (causal LM)
+  \item Fine-tuning par RLHF (alignment humain)
+\end{itemize}
+\[
+p(x_1, \ldots, x_T) = \prod_{t=1}^T p(x_t | x_{<t}; \theta)
+\]
+\end{frame}
+
+%================= Slide FM 4 : GPT applications =================
+\begin{frame}{Applications des LLM}
+\begin{itemize}
+  \item Dialogue (ChatGPT, assistants IA)
+  \item Traduction, résumé, génération de texte
+  \item Génération de code (Copilot, Code Llama)
+  \item Raisonnement scientifique et mathématique
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 5 : Stable Diffusion =================
+\begin{frame}{Stable Diffusion : principe}
+\begin{itemize}
+  \item Latent Diffusion Model (LDM)
+  \item Applique la diffusion dans un espace latent compressé
+  \item Conditionné par du texte via CLIP embeddings
+\end{itemize}
+\[
+z_0 \xrightarrow{\text{diffusion inverse}} z_T \quad \to \quad \text{decode}(z_T) \approx \text{image générée}
+\]
+\end{frame}
+
+%================= Slide FM 6 : Applications IA générative =================
+\begin{frame}{Applications IA générative}
+\begin{itemize}
+  \item Texte $\to$ image (Stable Diffusion, DALL·E)
+  \item Image $\to$ image (inpainting, style transfer)
+  \item Texte $\to$ vidéo (Sora, Pika)
+  \item Multimodalité (texte $\leftrightarrow$ audio, 3D, simulation)
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 7 : Liens avec diffusion =================
+\begin{frame}{Lien Diffusion $\leftrightarrow$ Modèles Fondations}
+\begin{itemize}
+  \item Les LDM (Stable Diffusion) combinent :
+    \begin{itemize}
+      \item Encodeur VAE pour espace latent
+      \item Diffusion pour génération
+      \item Conditionnement par un LLM/CLIP
+    \end{itemize}
+  \item Exemples : texte $\to$ image réaliste en quelques secondes
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 8 : Défis actuels =================
+\begin{frame}{Défis des Modèles Fondations}
+\begin{itemize}
+  \item Coût d’entraînement (centaines de GPU, mois de calcul)
+  \item Biais et toxicité hérités des données
+  \item Contrôle et interprétabilité
+  \item Durabilité énergétique
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 9 : Impact sociétal =================
+\begin{frame}{Impact sociétal}
+\begin{itemize}
+  \item Révolution de la productivité (IA copilote)
+  \item Transformation de la recherche et de l’éducation
+  \item Questions éthiques et juridiques (plagiat, droits d’auteur)
+  \item Vers des IA généralistes (AGI ?)
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 10 : Synthèse =================
+\begin{frame}{Synthèse : Modèles Fondations}
+\begin{itemize}
+  \item Entraînement massif sur données génériques
+  \item Réutilisables pour de multiples tâches
+  \item Exemples : GPT (texte), Stable Diffusion (images)
+  \item Défis : coût, biais, contrôle, énergie
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : GPT et modèles fondation =================
+\begin{frame}{Modèles fondation : GPT}
+\begin{itemize}
+  \item Transformer autoregressif
+  \item Pré-entraînement sur large corpus : langage, code, texte-image
+  \item Génération séquentielle : $x_t \sim p_\theta(x_t | x_{<t})$
+  \item Applications : texte, code, multimodal (image+texte)
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Transformer attention =================
+\begin{frame}{Transformer : attention mechanism}
+\[
+  \text{Attention}(Q,K,V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right) V
+\]
+\begin{itemize}
+  \item Q = queries, K = keys, V = values
+  \item Permet de capturer dépendances longues dans la séquence
+  \item Base de GPT, Stable Diffusion (cross attention)
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Diffusion vs GAN vs VAE =================
+\begin{frame}{Diffusion vs GAN vs VAE}
+\begin{tabular}{|l|c|c|c|}
+\hline
+Modèle & Stabilité & Qualité & Complexité \\
+\hline
+VAE & élevée & moyenne & faible \\
+GAN & faible & élevée & moyenne \\
+Diffusion & élevée & élevée & élevée \\
+\hline
+\end{tabular}
+\begin{itemize}
+  \item Diffusion models : stable, génératif haute qualité
+  \item GAN : rapide, mais instable
+  \item VAE : stable, latent interpretable, mais blurry
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 à 30 : Cas pratiques, schémas, exercices =================
+\begin{frame}{Exemple pratique : Diffusion sur MNIST}
+\begin{itemize}
+  \item Forward noising : ajouter bruit progressif aux images
+  \item Reverse denoising : prédire le bruit à chaque timestep
+  \item Visualiser évolution image : de bruit → chiffre clair
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : implémentation U-Net}
+\begin{itemize}
+  \item Construire un U-Net simple
+  \item Conditionner sur timestep $t$
+  \item Entraîner sur MNIST ou FashionMNIST
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : Stable Diffusion mini-projet}
+\begin{itemize}
+  \item Text-to-image simple
+  \item Préparer embeddings texte
+  \item Observer influence du prompt sur génération
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : visualiser score-based diffusion}
+\begin{itemize}
+  \item Implémenter forward/noise process sur 2D toy dataset
+  \item Visualiser les trajectoires de reverse process
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple multimodal}
+\begin{itemize}
+  \item Texte → image (Stable Diffusion)
+  \item Image → image (inpainting)
+  \item Comparer qualité génération vs GAN classique
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : comparaison VAE / GAN / Diffusion}
+\begin{itemize}
+  \item Générer échantillons pour chaque modèle
+  \item Comparer qualité, diversité, stabilité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : génération molécules}
+\begin{itemize}
+  \item Forward process : ajouter bruit aux positions atomiques
+  \item Reverse process : prédire positions correctes
+  \item Objectif : molécules valides
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé sous-section 2}
+\begin{itemize}
+  \item Diffusion models : forward noise + reverse denoising
+  \item Stable Diffusion : text-to-image, embeddings textuels
+  \item GPT : autoregressive transformer
+  \item Diffusion > GAN/VAE en stabilité et qualité
+  \item Exercices : implémentation U-Net, visualisation forward/reverse
+\end{itemize}
+\end{frame}
+
+
+\subsection{ 5.3 Liens avec l’optimisation (score-based models, transport optimal)} 
+\begin{frame}{Liens avec l’optimisation (score-based models, transport optimal) : plan}
+\begin{itemize}
+  \item Score-based generative modeling : définition et intuition
+  \item Relation avec gradient de log-densité
+  \item Optimisation stochastique et Langevin dynamics
+  \item Transport optimal : distance Wasserstein et applications
+  \item Relation OT / diffusion models
+  \item Algorithmes : Sinkhorn, OT régularisé
+  \item Génération guidée par transport optimal
+  \item Exemples : transfert de style, morphing de distributions
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 1 : Introduction =================
+\begin{frame}{IA générative et optimisation}
+\begin{itemize}
+  \item Beaucoup de modèles génératifs peuvent être vus comme des problèmes d’optimisation.
+  \item Deux liens majeurs :
+    \begin{enumerate}
+      \item Modèles basés sur le score (score-based generative models)
+      \item Transport optimal et distances de Wasserstein
+    \end{enumerate}
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 2 : Score matching =================
+\begin{frame}{Score matching : principe}
+\begin{itemize}
+  \item Idée : apprendre le gradient du log de densité $\nabla_x \log p(x)$
+  \item Approche introduite par Hyvärinen (2005)
+  \item Fonction de coût :
+  \[
+  \mathcal{L}(\theta) = \mathbb{E}_{x \sim p_{data}}
+   \left[ \frac{1}{2} \| s_\theta(x) - \nabla_x \log p(x) \|^2 \right]
+  \]
+  où $s_\theta(x)$ est le réseau de score.
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 3 : Génération par score =================
+\begin{frame}{De score matching à génération}
+\begin{itemize}
+  \item Si on connaît le score $\nabla_x \log p(x)$, on peut générer via Langevin dynamics :
+  \[
+  x_{t+1} = x_t + \eta \, s_\theta(x_t) + \sqrt{2\eta}\,\epsilon_t
+  \]
+  \item Procédé stochastique qui converge vers la distribution $p(x)$
+  \item Base des modèles de diffusion actuels
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 4 : Diffusion et score =================
+\begin{frame}{Lien diffusion -- score}
+\begin{itemize}
+  \item Modèles de diffusion = apprentissage du score à chaque niveau de bruit
+  \item Score network : $s_\theta(x,t) \approx \nabla_x \log p_t(x)$
+  \item Génération = résolution d’une équation différentielle stochastique (SDE)
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 5 : Transport optimal =================
+\begin{frame}{Transport optimal : idée générale}
+\begin{itemize}
+  \item Problème : comment transformer une distribution $\mu$ en une autre $\nu$ au coût minimal ?
+  \item Distance de Wasserstein $W_c(\mu,\nu)$ :
+  \[
+  W_c(\mu,\nu) = \inf_{\gamma \in \Pi(\mu,\nu)} \int c(x,y)\, d\gamma(x,y)
+  \]
+  où $\Pi(\mu,\nu)$ = couplages de $\mu$ et $\nu$.
+  \item Coût typique : $c(x,y) = \|x-y\|^2$
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 6 : Interprétation géométrique =================
+\begin{frame}{Distance de Wasserstein : interprétation}
+\begin{itemize}
+  \item Vue comme « effort de transport » pour transformer une distribution en une autre.
+  \item Structure géométrique sur l’espace des mesures de probabilité.
+  \item Fournit un cadre naturel pour l’IA générative.
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 7 : GAN et Wasserstein =================
+\begin{frame}{Wasserstein GAN (WGAN)}
+\begin{itemize}
+  \item Amélioration des GAN classiques par distance Wasserstein
+  \item Critère d’entraînement :
+  \[
+  \min_G \max_{D \in \text{Lip}(1)} \mathbb{E}_{x \sim p_{data}}[D(x)] - \mathbb{E}_{z \sim p(z)}[D(G(z))]
+  \]
+  \item Donne gradients plus stables et convergence meilleure
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 8 : Optimal transport et diffusion =================
+\begin{frame}{Optimal transport et diffusion}
+\begin{itemize}
+  \item Les modèles de diffusion peuvent être vus comme un chemin optimal entre distributions
+  \item Lien avec la formulation de Schrödinger bridge (transport stochastique)
+  \item Apporte une vision unifiée entre diffusion et transport optimal
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 9 : Applications =================
+\begin{frame}{Applications IA générative}
+\begin{itemize}
+  \item Génération d’images : WGAN, diffusion models
+  \item Modélisation moléculaire : transport optimal pour aligner distributions
+  \item Simulation physique : apprentissage de dynamiques via score matching
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 10 : Synthèse =================
+\begin{frame}{Synthèse : IA générative et optimisation}
+\begin{itemize}
+  \item Score matching : apprentissage du gradient de log densité
+  \item Transport optimal : géométrie des distributions
+  \item Modèles modernes = combinaison des deux (diffusion, Schrödinger bridge, WGAN)
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : optimisation et IA générative}
+\begin{itemize}
+  \item Générer des données réalistes nécessite d’optimiser sur la distribution cible
+  \item Score-based models et transport optimal offrent une formulation géométrique et mathématiquement solide
+  \item Applications : diffusion guided generation, morphing, transfert de style
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Score-based generative modeling =================
+\begin{frame}{Score-based generative modeling}
+\begin{itemize}
+  \item Score : gradient log-densité de la distribution
+  \[
+    s_\theta(x) = \nabla_x \log p_\theta(x)
+  \]
+  \item Modèle entraîne $s_\theta(x)$ sur données bruitées
+  \item Génération via Langevin dynamics :
+  \[
+    x_{t+1} = x_t + \frac{\eta}{2} s_\theta(x_t) + \sqrt{\eta} \epsilon_t
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Forward / reverse =================
+\begin{frame}{Forward / Reverse Dynamics}
+\begin{itemize}
+  \item Forward : ajouter bruit progressif (diffusion)
+  \item Reverse : enlever bruit via score-based update
+  \item Connection : score-based models = continuous limit de diffusion models
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Langevin dynamics =================
+\begin{frame}{Langevin dynamics pour génération}
+\begin{itemize}
+  \item Discrétisation Euler-Maruyama
+  \[
+    x_{t+1} = x_t + \frac{\eta}{2} s_\theta(x_t) + \sqrt{\eta} \epsilon_t
+  \]
+  \item $\epsilon_t \sim \mathcal{N}(0,I)$
+  \item $\eta$ : step size
+  \item Permet sampling à partir de $p_\theta(x)$
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Transport optimal =================
+\begin{frame}{Transport optimal et génération}
+\begin{itemize}
+  \item Comparer distributions $\mu$ et $\nu$
+  \item Distance de Wasserstein :
+  \[
+    W_p(\mu,\nu) = \left( \inf_{\gamma \in \Pi(\mu,\nu)} \int \|x-y\|^p d\gamma(x,y) \right)^{1/p}
+  \]
+  \item Génération guidée : rapprocher distribution générée $p_\theta$ de $p_\text{data}$ en OT
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Sinkhorn =================
+\begin{frame}{Sinkhorn algorithm pour OT régularisé}
+\begin{itemize}
+  \item OT régularisé entropiquement :
+  \[
+    \min_\gamma \int c(x,y) d\gamma + \epsilon \mathrm{KL}(\gamma||\mu\otimes\nu)
+  \]
+  \item Sinkhorn iterations pour calcul efficace
+  \item Applications : transfert de style, morphing distributions
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Score + OT =================
+\begin{frame}{Combinaison score-based + OT}
+\begin{itemize}
+  \item Score-based : optimiser densité locale
+  \item OT : optimiser distance globale entre distributions
+  \item Ensemble : génération stable et réaliste
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Exercice 1 =================
+\begin{frame}{Exercice : score-based sampling}
+\begin{itemize}
+  \item Implémenter Langevin dynamics sur dataset 2D toy
+  \item Visualiser convergence vers distribution cible
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Exercice 2 =================
+\begin{frame}{Exercice : OT régularisé}
+\begin{itemize}
+  \item Calculer Wasserstein distance entre deux distributions 2D
+  \item Implémenter Sinkhorn iterations
+  \item Visualiser plan de transport optimal
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Exercice 3 =================
+\begin{frame}{Exercice : combinaison Score + OT}
+\begin{itemize}
+  \item Générer des points avec score-based Langevin
+  \item Régulariser avec plan OT vers distribution cible
+  \item Observer effet sur distribution finale
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 : Applications =================
+\begin{frame}{Applications IA générative + OT}
+\begin{itemize}
+  \item Image : morphing, style transfer
+  \item Texte → texte / image → image : distribution matching
+  \item Physique : génération molécules, particules simulées
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Diffusion guided by OT =================
+\begin{frame}{Diffusion models guidés par OT}
+\begin{itemize}
+  \item Reverse diffusion avec penalité Wasserstein
+  \item Objectif : préserver structure globale des données
+  \item Meilleure fidélité distributionnelle
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Visualisation =================
+\begin{frame}{Visualisation : Score-based + OT}
+\begin{itemize}
+  \item Points initiaux : bruit
+  \item Reverse process : Langevin dynamics
+  \item OT reg. : rapprochement distribution cible
+  \item Schéma : trajectoires convergentes
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 à 30 : Cas pratiques, exercices avancés =================
+\begin{frame}{Exercice avancé 1 : Morphing distributions}
+\begin{itemize}
+  \item Générer distribution A → B
+  \item Utiliser score-based update + OT regularization
+  \item Visualiser trajectoires
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice avancé 2 : Transfert de style images}
+\begin{itemize}
+  \item Dataset source : MNIST
+  \item Dataset target : FashionMNIST
+  \item Génération guidée par score + OT
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice avancé 3 : Score-based diffusion sur molécules}
+\begin{itemize}
+  \item Forward process sur positions atomiques
+  \item Reverse process avec score-based Langevin
+  \item OT pour rapprocher distribution moléculaire cible
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : comparaison avec GAN et VAE}
+\begin{itemize}
+  \item Visualiser qualité et diversité
+  \item Observer stabilité des modèles score-based + OT
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : visualisation trajectoires}
+\begin{itemize}
+  \item Forward : diffusion du bruit
+  \item Reverse : score-based update
+  \item OT : ajustement global
+  \item Observer convergence distribution cible
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé Sous-section 3}
+\begin{itemize}
+  \item Score-based generative models : gradient log-densité, Langevin dynamics
+  \item Transport optimal : Wasserstein, Sinkhorn
+  \item Combinaison : génération stable, fidèle à distribution cible
+  \item Applications : morphing, style transfer, diffusion guided, molécules
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Transition vers synthèse du module IA générative}
+\begin{itemize}
+  \item Récapitulatif :
+    \begin{itemize}
+      \item Modèles classiques : VAE, GAN, Flows
+      \item Modèles diffusion et fondation : Stable Diffusion, GPT
+      \item Optimisation avancée : score-based + OT
+    \end{itemize}
+  \item Module complet : théorie, mathématiques, applications, exercices
+\end{itemize}
+\end{frame}
+
+
+%================= Slide finale : Synthèse Module IA générative =================
+\begin{frame}{Synthèse du module : IA générative}
+\begin{itemize}
+  \item \textbf{Modèles classiques : VAE, GAN, Flows}
+    \begin{itemize}
+      \item VAE : latent continu, ELBO, reconstruction
+      \item GAN : générateur/adversaire, échantillons réalistes mais instables
+      \item Flows : transformations bijectives, likelihood exacte
+    \end{itemize}
+  \item \textbf{Diffusion models et modèles fondation}
+    \begin{itemize}
+      \item Forward noise + reverse denoising
+      \item Stable Diffusion : text-to-image, embeddings textuels
+      \item GPT : autoregressive Transformer
+    \end{itemize}
+  \item \textbf{Optimisation avancée et génération guidée}
+    \begin{itemize}
+      \item Score-based models : gradient log-densité, Langevin dynamics
+      \item Transport optimal : Wasserstein distance, Sinkhorn iterations
+      \item Combinaison score + OT : génération stable et fidèle à la distribution cible
+    \end{itemize}
+  \item \textbf{Applications}
+    \begin{itemize}
+      \item Images, audio, texte, molécules, style transfer
+      \item Études de cas et exercices pratiques pour compréhension et visualisation
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide de transition vers modules suivants =================
+\begin{frame}{Prochaines étapes}
+\begin{itemize}
+  \item Intégration des concepts de géométrie des données et IA générative
+  \item Exploration avancée :
+    \begin{itemize}
+      \item Deep learning géométrique (GNN, graphes et variétés)
+      \item Applications scientifiques et industrielles
+    \end{itemize}
+  \item Projet final : combinaison théorie + implémentation + visualisation
+\end{itemize}
+\end{frame}
+
+\end{document}
+
+

@@ -1,0 +1,1376 @@
+\documentclass{beamer}
+
+% Thème Beamer
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+% Packages utiles
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+% Métadonnées
+\title{Géométrie des Données et Apprentissage sur Variétés}
+\subtitle{Module 1 -- Introduction enrichie avec exercices}
+\author{Mastère Spécialisé HPC-AI}
+\date{\today}
+
+\begin{document}
+
+% Page de titre
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Sommaire
+\begin{frame}{Plan}
+  \tableofcontents
+\end{frame}
+
+%================= MODULE 5 =================
+
+\section{ Module 5 : IA générative} 
+\subsection{ 5.1 Introduction aux modèles génératifs (VAE, GAN, Flows)} 
+\begin{frame}{Introduction aux modèles génératifs (VAE, GAN, Flows) : plan}
+\begin{itemize}
+  \item Introduction aux modèles génératifs (VAE, GAN, Flows)
+  \item Définition d’un modèle génératif
+  \item VAE : principe, encodage/décodage, régularisation KL
+  \item VAE : formule de l’ELBO et explication mathématique
+  \item Exemple concret VAE : génération de chiffres MNIST
+  \item GAN : principe, adversarial loss
+  \item GAN : architecture générateur/discriminateur
+  \item GAN : problèmes de convergence et techniques d’amélioration
+  \item Flows : définition et motivation (transformation bijective)
+  \item Flows : formule du changement de variables
+  \item Flows : exemple simple (RealNVP, Glow)
+  \item Comparaison VAE / GAN / Flows
+  \item Applications pratiques : images, texte, molécules
+  \item Évaluation : log-likelihood, FID, inception score
+  \item Limites et challenges des modèles classiques
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : Pourquoi les modèles génératifs ?}
+\begin{itemize}
+  \item Générer de nouvelles données réalistes : images, texte, audio
+  \item Comprendre la distribution sous-jacente des données
+  \item Applications :
+    \begin{itemize}
+      \item Synthèse d’images (DeepFake, art AI)
+      \item Génération de molécules ou structures 3D
+      \item Data augmentation pour apprentissage supervisé
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Définition d’un modèle génératif =================
+\begin{frame}{Définition d’un modèle génératif}
+\begin{itemize}
+  \item Objectif : approximer la distribution de données $p_\text{data}(x)$
+  \item Modèle paramétrique $p_\theta(x)$ ou transformée déterministe $x=f_\theta(z)$
+  \item Deux grandes approches :
+    \begin{itemize}
+      \item \textbf{Explicit likelihood} : VAE, Flows
+      \item \textbf{Implicit likelihood} : GAN
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : VAE principe =================
+%================= Slide VAE 1 : Motivation =================
+\begin{frame}{Variational AutoEncoder (VAE) : motivation}
+\begin{itemize}
+  \item Objectif : apprendre une représentation latente $z$ continue de données $x$
+  \item Permet :
+    \begin{itemize}
+      \item Génération de nouvelles données réalistes
+      \item Réduction de dimensionnalité probabiliste
+      \item Exploration et manipulation de l’espace latent
+    \end{itemize}
+  \item Contraintes : différentiabilité, espace latent régulier
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 2 : Pourquoi “variational” =================
+\begin{frame}{Pourquoi “Variational” ?}
+\begin{itemize}
+  \item Approche bayésienne : approximer la distribution postérieure $p_\theta(z|x)$
+  \item Directement $p_\theta(z|x)$ est intractable
+  \item Solution : utiliser une distribution approchée $q_\phi(z|x)$
+  \item Optimisation via \textbf{Variational Inference} :
+  \[
+    \text{ELBO} = \mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)] - \text{KL}(q_\phi(z|x) || p(z))
+  \]
+  \item “Variational” = on optimise une borne inférieure sur la log-vraisemblance
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 3 : Encoder =================
+\begin{frame}{Encoder : $q_\phi(z|x)$}
+\begin{itemize}
+  \item Mappe $x$ vers un vecteur latent $z$
+  \item Approximé par une distribution Gaussienne :
+  \[
+    q_\phi(z|x) = \mathcal{N}(\mu_\phi(x), \text{diag}(\sigma_\phi^2(x)))
+  \]
+  \item \textbf{Reparameterization trick} pour différentiabilité :
+  \[
+    z = \mu_\phi(x) + \sigma_\phi(x) \odot \epsilon, \quad \epsilon \sim \mathcal{N}(0,I)
+  \]
+  \item Avantage : on peut backpropager à travers $z$ pour entraîner $\phi$
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 4 : Decoder =================
+\begin{frame}{Decoder : $p_\theta(x|z)$}
+\begin{itemize}
+  \item Reconstruit $x$ à partir du vecteur latent $z$
+  \item Paramétré par un réseau neuronal (feedforward ou convolutionnel)
+  \item Modélise la probabilité conditionnelle $p_\theta(x|z)$
+  \item Génère $\hat{x}$ ressemblant à $x$ en sortie
+  \item Schéma conceptuel :
+  \begin{center}
+    $z \rightarrow \text{Decoder} \rightarrow \hat{x}$
+  \end{center}
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 5 : Fonction de perte =================
+\begin{frame}{Loss function : ELBO}
+\begin{itemize}
+  \item Evidence Lower Bound (ELBO) :
+  \[
+    \mathcal{L}(\theta, \phi; x) = 
+      \underbrace{\mathbb{E}_{z \sim q_\phi(z|x)}[\log p_\theta(x|z)]}_{\text{reconstruction}} 
+      - \underbrace{\text{KL}(q_\phi(z|x) || p(z))}_{\text{régularisation}}
+  \]
+  \item Reconstruction : rapproche $\hat{x}$ de $x$
+  \item KL : force $q_\phi(z|x)$ proche de prior $p(z)$, régularise espace latent
+  \item Optimisation via gradient descent sur $\theta$ et $\phi$
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 6 : Schéma global =================
+\begin{frame}{VAE : schéma global}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{vae_full_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $x \rightarrow$ Encoder $q_\phi(z|x) \rightarrow z$
+  \item $z \rightarrow$ Decoder $p_\theta(x|z) \rightarrow \hat{x}$
+  \item Loss : reconstruction + KL
+  \item Espace latent régulier et continu → génération et interpolation
+\end{itemize}
+\end{frame}
+
+%================= Slide VAE 7 : Visualisation espace latent =================
+\begin{frame}{Visualisation espace latent}
+\begin{itemize}
+  \item Exemple MNIST : encoder 784D → 2D latent
+  \item Nuage de points : chaque chiffre coloré différemment
+  \item Interpolation linéaire dans latent → génération continue de chiffres
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.6\textwidth]{vae_latent_mnist.png}
+\end{center}
+\end{frame}
+
+%================= Slide VAE 8 : Synthèse =================
+\begin{frame}{Synthèse VAE}
+\begin{itemize}
+  \item Variational AutoEncoder = combinaison de :
+    \begin{itemize}
+      \item Encoder probabiliste
+      \item Decoder génératif
+      \item Loss ELBO (reconstruction + KL)
+    \end{itemize}
+  \item “Variational” : approximation de la postérieure via optimisation variationnelle
+  \item Applications : génération d’images, réduction de dimensionnalité, interpolation dans l’espace latent
+\end{itemize}
+\end{frame}
+
+
+%================= Slide 4 : Exemple concret VAE =================
+\begin{frame}{Exemple concret : VAE MNIST}
+\begin{itemize}
+  \item Encoder : 784 → 64 → 2D latent
+  \item Decoder : 2D latent → 64 → 784
+  \item Visualisation : nuage de points latent → génération de chiffres
+  \item Avantage : structure continue de l’espace latent
+\end{itemize}
+\end{frame}
+
+
+%================= Slide GAN 1 : Motivation =================
+\begin{frame}{Generative Adversarial Networks (GAN) : motivation}
+\begin{itemize}
+  \item Objectif : générer des échantillons réalistes à partir de bruit latent
+  \item Utilisé pour :
+    \begin{itemize}
+      \item Images : photoréalistes ou artistiques
+      \item Audio, musique, vidéo
+      \item Données synthétiques pour apprentissage supervisé
+    \end{itemize}
+  \item Problème classique : réseaux génératifs simples → blurry, distribution approximative
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 2 : Architecture =================
+\begin{frame}{Architecture GAN}
+\begin{itemize}
+  \item Deux réseaux en compétition :
+    \begin{itemize}
+      \item \textbf{Generator $G(z)$} : prend $z \sim p_z$ (bruit) et génère $\hat{x}$
+      \item \textbf{Discriminator $D(x)$} : différencie $x \sim p_\text{data}$ et $\hat{x} \sim G(z)$
+    \end{itemize}
+  \item Jeu à somme nulle (adversarial)
+  \[
+    \min_G \max_D \, \mathbb{E}_{x\sim p_\text{data}}[\log D(x)] + 
+      \mathbb{E}_{z\sim p_z}[\log(1 - D(G(z)))]
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 3 : Fonctionnement étape par étape =================
+\begin{frame}{Fonctionnement étape par étape}
+\begin{enumerate}
+  \item Générateur produit un batch d’échantillons $\hat{x} = G(z)$
+  \item Discriminateur évalue probabilité de vrai/faux
+  \item Backpropagation sur $D$ pour distinguer vrai/faux
+  \item Backpropagation sur $G$ pour tromper $D$ (maximize $\log D(G(z))$)
+  \item Répéter jusqu’à convergence
+\end{enumerate}
+\end{frame}
+
+%================= Slide GAN 4 : Schéma conceptuel =================
+\begin{frame}{Schéma conceptuel GAN}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{gan_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $z \rightarrow G \rightarrow \hat{x} \rightarrow D \rightarrow$ verdict
+  \item D tente de distinguer réel vs généré
+  \item G tente de tromper D
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 5 : Points importants =================
+\begin{frame}{Points importants et difficultés}
+\begin{itemize}
+  \item Mode collapse : G génère un petit nombre de modes
+  \item Instabilité : oscillations durant l’entraînement
+  \item Solutions :
+    \begin{itemize}
+      \item Wasserstein GAN : utiliser distance Wasserstein
+      \item Gradient penalty, batch norm, label smoothing
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 6 : Applications =================
+\begin{frame}{Applications GAN}
+\begin{itemize}
+  \item Image synthesis : photoréaliste, anime, art
+  \item Super-resolution : améliorer résolution d’images
+  \item Data augmentation : synthèse pour apprentissage supervisé
+  \item Audio et musique : génération de sons, voix
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 7 : Visualisation d’exemples =================
+\begin{frame}{Exemple de génération GAN}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{gan_samples.png}
+\end{center}
+\begin{itemize}
+  \item Comparaison réel vs généré
+  \item Observer diversité et qualité
+\end{itemize}
+\end{frame}
+
+%================= Slide GAN 8 : Synthèse =================
+\begin{frame}{Synthèse GAN}
+\begin{itemize}
+  \item Deux réseaux en compétition : Generator et Discriminator
+  \item Jeu min-max → optimisation adversariale
+  \item Points clés : mode collapse, instabilité, solutions modernes
+  \item Applications variées : images, audio, données synthétiques
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : GAN principe =================
+\begin{frame}{Generative Adversarial Networks (GAN)}
+\begin{itemize}
+  \item Deux réseaux en compétition :
+    \begin{itemize}
+      \item \textbf{G} : générateur, produit $x = G(z)$
+      \item \textbf{D} : discriminateur, distingue $x_\text{réel}$ et $x_\text{fake}$
+    \end{itemize}
+  \item Loss adversariale :
+  \[
+    \min_G \max_D \mathbb{E}_{x \sim p_\text{data}}[\log D(x)] 
+    + \mathbb{E}_{z \sim p(z)}[\log(1-D(G(z)))]
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : GAN architecture =================
+\begin{frame}{Architecture GAN}
+\begin{center}
+\texttt{
+Random noise z → [G] → x_fake → [D] → Probabilité fake ou réel
+}
+\begin{itemize}
+  \item G apprend à tromper D
+  \item D apprend à détecter les faux
+  \item Entraînement alterné G/D
+\end{itemize}
+\end{center}
+\end{frame}
+
+%================= Slide 7 : GAN challenges =================
+\begin{frame}{Challenges GAN}
+\begin{itemize}
+  \item Instabilité de l’entraînement
+  \item Mode collapse : G produit peu de variations
+  \item Techniques d’amélioration :
+    \begin{itemize}
+      \item Wasserstein GAN
+      \item Gradient penalty
+      \item Label smoothing
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 1 : Motivation =================
+\begin{frame}{Normalizing Flows : motivation}
+\begin{itemize}
+  \item Objectif : modéliser des distributions complexes via transformations bijectives simples
+  \item Avantages :
+    \begin{itemize}
+      \item Likelihood exacte
+      \item Génération de données et évaluation de densité
+      \item Différentiable et entraînable par gradient
+    \end{itemize}
+  \item Applications : génération d’images, audio, densités multi-dimensionnelles
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 2 : Principe =================
+\begin{frame}{Principe des Normalizing Flows}
+\begin{itemize}
+  \item Transformer une distribution simple $z \sim p_Z(z)$ en distribution complexe $x \sim p_X(x)$
+  \item Via une suite de transformations bijectives :
+  \[
+    x = f_K \circ f_{K-1} \circ \dots \circ f_1(z)
+  \]
+  \item Densité exacte via la formule du changement de variable :
+  \[
+    p_X(x) = p_Z(z) \prod_{k=1}^{K} \Big| \det \frac{\partial f_k}{\partial h_{k-1}} \Big|^{-1}
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 3 : Transformation bijective =================
+\begin{frame}{Transformation bijective simple}
+\begin{itemize}
+  \item Chaque $f_k$ : transformation bijective et différentiable
+  \item Exemples :
+    \begin{itemize}
+      \item Affine coupling layers (RealNVP)
+      \item Actnorm, 1x1 convolutions (Glow)
+    \end{itemize}
+  \item Calcul du déterminant jacobien facile pour tractabilité
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 4 : Schéma conceptuel =================
+\begin{frame}{Schéma conceptuel des Flows}
+\begin{center}
+\includegraphics[width=0.8\textwidth]{normalizing_flow_diagram.png}
+\end{center}
+\begin{itemize}
+  \item $z \sim \mathcal{N}(0,I)$ → transformations successives $f_1, f_2, ..., f_K$ → $x$
+  \item Densité de $x$ exacte via determinant jacobien
+  \item Génération et likelihood : deux opérations inverses simples
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 5 : Fonction de perte =================
+\begin{frame}{Loss function : Maximum Likelihood}
+\begin{itemize}
+  \item Objectif : maximiser log-likelihood sur données
+  \[
+    \max_\theta \sum_{i=1}^N \log p_X(x_i) = \sum_{i=1}^N \Big[ \log p_Z(z_i) - \sum_{k=1}^{K} \log \Big|\det \frac{\partial f_k}{\partial h_{k-1}}\Big| \Big]
+  \]
+  \item Optimisation directe via backpropagation
+  \item Avantage : pas de perte adversariale, pas d’instabilité comme GAN
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 6 : Inversion =================
+\begin{frame}{Génération et inversion}
+\begin{itemize}
+  \item Génération : $z \sim p_Z(z)$ → $x = f_K \circ ... \circ f_1(z)$
+  \item Inversion : $x$ donné → $z = f_1^{-1} \circ ... \circ f_K^{-1}(x)$
+  \item Permet sampling et évaluation de densité
+  \item Schéma :
+  \begin{center}
+    $z \leftrightarrow x$ via Flow
+  \end{center}
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 7 : Applications =================
+\begin{frame}{Applications des Normalizing Flows}
+\begin{itemize}
+  \item Génération d’images et d’audio
+  \item Modélisation de densités multi-dimensionnelles
+  \item Approximation de posterior en bayésien (variational inference)
+  \item Pré-processing ou génération de features pour modèles downstream
+\end{itemize}
+\end{frame}
+
+%================= Slide Flows 8 : Synthèse =================
+\begin{frame}{Synthèse : Normalizing Flows}
+\begin{itemize}
+  \item Transformer une distribution simple en complexe via bijections différentiables
+  \item Likelihood exacte, entraînement stable
+  \item Complète VAE et GAN : avantages différents
+  \item Applications variées et flexible pour IA générative
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Flows introduction =================
+\begin{frame}{Normalizing Flows : introduction}
+\begin{itemize}
+  \item Transformation bijective $x = f_\theta(z)$
+  \item Distribution exacte via changement de variables :
+  \[
+    p_\theta(x) = p(z) \left| \det \frac{\partial f_\theta^{-1}}{\partial x} \right|
+  \]
+  \item Avantages : likelihood exacte, sampling direct
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Exemple Flow =================
+\begin{frame}{Exemple Flow : RealNVP}
+\begin{itemize}
+  \item Couche affine bijective : $y = s(x)\odot x + t(x)$
+  \item Chaîne de transformations → modèle complexe
+  \item Applications : génération d’images, densité estimation
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Comparaison VAE / GAN / Flows =================
+\begin{frame}{Comparaison des modèles génératifs}
+\begin{tabular}{|l|c|c|c|}
+\hline
+Modèle & Likelihood & Latent & Sampling \\
+\hline
+VAE & explicite & continu & direct \\
+GAN & implicite & non défini & via G \\
+Flow & explicite & continu & direct \\
+\hline
+\end{tabular}
+\begin{itemize}
+  \item VAE : stabilité mais blurry samples
+  \item GAN : samples réalistes mais instables
+  \item Flow : exact likelihood mais plus coûteux
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 : Applications =================
+\begin{frame}{Applications des modèles génératifs}
+\begin{itemize}
+  \item Images : MNIST, CIFAR, CelebA
+  \item Texte : GPT, Transformer VAE
+  \item Audio : WaveGAN, Flow-based TTS
+  \item Chimie : génération de molécules, protéines
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Évaluation =================
+\begin{frame}{Évaluation des modèles génératifs}
+\begin{itemize}
+  \item Log-likelihood
+  \item Frechet Inception Distance (FID)
+  \item Inception score
+  \item Qualité subjective et diversité
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Limitations =================
+\begin{frame}{Limitations et challenges}
+\begin{itemize}
+  \item VAE : échantillons flous
+  \item GAN : instabilité, mode collapse
+  \item Flows : complexité computationnelle
+  \item Défi global : générer des données structurées, respecter contraintes
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 à 30 : Études de cas et exercices =================
+\begin{frame}{Étude de cas : VAE sur MNIST}
+\begin{itemize}
+  \item Encoder 784→64→2D latent
+  \item Decoder 2D latent→784
+  \item Exercice : visualiser le latent, générer de nouveaux chiffres
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice GAN simple}
+\begin{itemize}
+  \item Implémenter un GAN sur MNIST ou FashionMNIST
+  \item Observer mode collapse et tenter WGAN ou gradient penalty
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice Flow}
+\begin{itemize}
+  \item Implémenter RealNVP simple sur un dataset 2D toy
+  \item Visualiser la transformation bijective et densité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-exemple VAE + GAN}
+\begin{itemize}
+  \item Comparer échantillons VAE vs GAN sur FashionMNIST
+  \item Noter différences de qualité et diversité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-exemple Flow}
+\begin{itemize}
+  \item Appliquer Flow sur données 2D simples
+  \item Visualiser densité exacte et échantillons
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé Sous-section 1}
+\begin{itemize}
+  \item VAE : latent continu, ELBO, reconstruction
+  \item GAN : générateur/adversaire, loss implicite
+  \item Flow : transformation bijective, likelihood exacte
+  \item Applications : images, texte, audio, chimie
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Préparer transition vers diffusion models}
+\begin{itemize}
+  \item Limites des modèles classiques : blurry, mode collapse, complexité
+  \item Motivation pour diffusion models et modèles fondation
+\end{itemize}
+\end{frame}
+
+
+\subsection{ 5.2 Diffusion models et modèles fondation (GPT, Stable Diffusion, etc)} 
+\begin{frame}{Diffusion models et modèles fondation (GPT, Stable Diffusion, etc) : plan}
+\begin{itemize}
+  \item Introduction : motivation des diffusion models
+  \item Processus de diffusion : forward noising process
+  \item Processus de reverse denoising
+  \item Loss fonctionnelle : score matching
+  \item Architecture typique : U-Net
+  \item Exemples d’application : images, audio, molécules
+  \item Stable Diffusion : workflow, text-to-image
+  \item GPT / LLM : modèle autoregressif, transformer
+  \item Embeddings et attention mechanism
+  \item Exemples d’usage GPT : génération texte, code
+  \item Diffusion vs GAN vs VAE : comparaison
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 1 : Motivation =================
+\begin{frame}{Diffusion Models : motivation}
+\begin{itemize}
+  \item Nouveaux modèles génératifs (2020+) surpassant GAN/VAE sur qualité d’image
+  \item Idée clé : générer en inversant un processus de diffusion bruité
+  \item Avantages :
+    \begin{itemize}
+      \item Échantillons haute qualité
+      \item Apprentissage stable (pas de min-max adversarial)
+      \item Flexibilité (conditionnement, multimodalité)
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 2 : Principe =================
+\begin{frame}{Principe des Diffusion Models}
+\begin{itemize}
+  \item Processus avant (forward) : bruit progressif
+  \[
+    q(x_t | x_{t-1}) = \mathcal{N}\big(x_t; \sqrt{1-\beta_t} \, x_{t-1}, \, \beta_t I\big)
+  \]
+  \item Processus inverse (backward) : apprendre à débruiter
+  \[
+    p_\theta(x_{t-1} | x_t) = \mathcal{N}\big(x_{t-1}; \mu_\theta(x_t, t), \, \Sigma_\theta(x_t, t)\big)
+  \]
+  \item L’IA apprend à approximer la dynamique inverse
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 3 : Forward Process =================
+\begin{frame}{Forward process : ajout de bruit}
+\begin{itemize}
+  \item On part d’une donnée réelle $x_0$
+  \item On ajoute progressivement du bruit gaussien sur $T$ étapes
+  \item Après assez d’étapes : $x_T \sim \mathcal{N}(0,I)$ (pure noise)
+\end{itemize}
+\[
+q(x_t|x_0) = \mathcal{N}\big(x_t; \sqrt{\bar{\alpha}_t} x_0, (1-\bar{\alpha}_t)I\big)
+\]
+\begin{center}
+\includegraphics[width=0.7\textwidth]{diffusion_forward.png}
+\end{center}
+\end{frame}
+
+%================= Slide Diffusion 4 : Reverse Process =================
+\begin{frame}{Reverse process : apprentissage}
+\begin{itemize}
+  \item Objectif : échantillonner $x_{t-1}$ à partir de $x_t$
+  \item Approximé par un réseau neuronal $\epsilon_\theta(x_t, t)$
+  \item Intuition : apprendre à prédire et enlever le bruit
+\end{itemize}
+\[
+p_\theta(x_{t-1}|x_t) \approx \mathcal{N}\big(x_{t-1}; \tfrac{1}{\sqrt{\alpha_t}}(x_t - \tfrac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t,t)), \, \beta_t I \big)
+\]
+\end{frame}
+
+%================= Slide Diffusion 5 : Loss Function =================
+\begin{frame}{Fonction de perte simplifiée}
+\begin{itemize}
+  \item Loss d’entraînement = MSE entre bruit réel et bruit prédit
+\end{itemize}
+\[
+\mathcal{L}_{\text{simple}}(\theta) = \mathbb{E}_{x_0, t, \epsilon}\Big[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\Big]
+\]
+\begin{itemize}
+  \item $x_t$ est une version bruitée de $x_0$
+  \item $\epsilon$ est le bruit ajouté
+  \item $\epsilon_\theta(x_t, t)$ = prédiction du réseau
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 6 : Sampling =================
+\begin{frame}{Sampling avec Diffusion Models}
+\begin{itemize}
+  \item Étapes de sampling :
+    \begin{enumerate}
+      \item Tirer $x_T \sim \mathcal{N}(0,I)$
+      \item Appliquer séquentiellement $p_\theta(x_{t-1}|x_t)$
+      \item Obtenir $x_0$ (image générée)
+    \end{enumerate}
+  \item Processus lent (1000 étapes typiques)
+  \item Optimisation : DDIM, samplers accélérés
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 7 : Comparaison avec GAN/VAE =================
+\begin{frame}{Comparaison : Diffusion vs GAN/VAE}
+\begin{itemize}
+  \item GAN : échantillons rapides, mais entraînement instable
+  \item VAE : entraînement stable, mais qualité floue
+  \item Diffusion : entraînement stable + haute qualité, mais sampling coûteux
+\end{itemize}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{vae_gan_diffusion.png}
+\end{center}
+\end{frame}
+
+%================= Slide Diffusion 8 : Applications =================
+\begin{frame}{Applications des Diffusion Models}
+\begin{itemize}
+  \item Génération d’images (Stable Diffusion, Imagen, DALL·E 3)
+  \item Audio et musique (AudioLM, Riffusion)
+  \item Modélisation moléculaire, biologie (AlphaFold avec diffusion)
+  \item IA multimodale (texte → image, image → 3D, vidéo générative)
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 9 : Variantes =================
+\begin{frame}{Extensions et variantes}
+\begin{itemize}
+  \item Score-based models (SDE + Langevin dynamics)
+  \item Diffusion déterministe (DDIM)
+  \item Latent diffusion models (Stable Diffusion) : diffusion dans un espace latent
+  \item Conditionnement : texte, étiquettes, audio, structures
+\end{itemize}
+\end{frame}
+
+%================= Slide Diffusion 10 : Synthèse =================
+\begin{frame}{Synthèse : Diffusion Models}
+\begin{itemize}
+  \item Apprentissage d’un processus inverse au bruit gaussien
+  \item Entraînement stable via prédiction du bruit
+  \item Échantillons haute qualité mais sampling coûteux
+  \item Révolution dans l’IA générative moderne
+\end{itemize}
+\end{frame}
+
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : Pourquoi les diffusion models ?}
+\begin{itemize}
+  \item Génération de données de haute qualité (images, audio, molécules)
+  \item Modèles stables et contrôlables, surmontant certains problèmes des GAN
+  \item Applications : text-to-image, audio synthesis, IA générative scientifique
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Processus de diffusion =================
+\begin{frame}{Diffusion Models : processus de diffusion}
+\begin{itemize}
+  \item Forward process : ajout progressif de bruit à une donnée $x_0$
+  \[
+    q(x_t|x_{t-1}) = \mathcal{N}(\sqrt{1-\beta_t}x_{t-1}, \beta_t I)
+  \]
+  \item Transforme distribution originale en bruit pur
+  \item Objectif : apprendre à inverser ce processus
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Reverse denoising =================
+\begin{frame}{Reverse process : génération}
+\begin{itemize}
+  \item Reverse process : retirer le bruit pas à pas
+  \[
+    p_\theta(x_{t-1}|x_t) \approx \mathcal{N}(\mu_\theta(x_t,t), \Sigma_\theta(x_t,t))
+  \]
+  \item Réseau entraîné à prédire le bruit ou la distribution conditionnelle
+  \item Génération finale : $x_0$ à partir de $x_T \sim \mathcal{N}(0,I)$
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Loss fonctionnelle =================
+\begin{frame}{Loss fonctionnelle : score matching}
+\begin{itemize}
+  \item Objectif : prédire bruit $\epsilon$ ajouté
+  \[
+    L(\theta) = \mathbb{E}_{x_0, \epsilon, t} \| \epsilon - \epsilon_\theta(x_t,t) \|^2
+  \]
+  \item Optimisation via backpropagation
+  \item Permet un training stable comparé aux GAN
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Architecture typique =================
+\begin{frame}{Architecture typique : U-Net}
+\begin{itemize}
+  \item Encodeur-décodeur avec skip connections
+  \item Conditionnement sur timestep $t$
+  \item Peut être combiné avec attention (Transformer-like)
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Exemples d’application =================
+\begin{frame}{Exemples d’application des diffusion models}
+\begin{itemize}
+  \item Images : MNIST, CIFAR, ImageNet
+  \item Audio : génération de musique ou voix
+  \item Molécules : génération de structures chimiques
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Stable Diffusion =================
+\begin{frame}{Stable Diffusion}
+\begin{itemize}
+  \item Text-to-image diffusion model
+  \item Conditionnement sur embeddings textuels (CLIP)
+  \item Workflow :
+  \begin{enumerate}
+    \item Encode texte → embedding
+    \item Noising forward process sur image
+    \item Denoising reverse process conditionné par texte
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+
+%================= Slide FM 1 : Introduction =================
+\begin{frame}{Modèles Fondations : Introduction}
+\begin{itemize}
+  \item Définition : modèles entraînés sur de larges corpus génériques, réutilisables pour de multiples tâches
+  \item Exemples :
+    \begin{itemize}
+      \item LLM (GPT-4, LLaMA, Mistral) pour le texte
+      \item Stable Diffusion, Imagen pour les images
+      \item AudioLM, MusicGen pour l’audio
+    \end{itemize}
+  \item Idée clé : pré-entraînement massif + fine-tuning ou prompting
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 2 : Caractéristiques =================
+\begin{frame}{Caractéristiques des Modèles Fondations}
+\begin{itemize}
+  \item Taille massive (milliards de paramètres)
+  \item Données hétérogènes (texte, image, code, multimodal)
+  \item Capacité d’émergence : comportements non anticipés
+  \item Adaptabilité via prompt engineering ou fine-tuning
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 3 : GPT et LLM =================
+\begin{frame}{LLM : GPT et Transformers}
+\begin{itemize}
+  \item Architecture Transformer (auto-attention)
+  \item Pré-entraînement : prédire le token suivant (causal LM)
+  \item Fine-tuning par RLHF (alignment humain)
+\end{itemize}
+\[
+p(x_1, \ldots, x_T) = \prod_{t=1}^T p(x_t | x_{<t}; \theta)
+\]
+\end{frame}
+
+%================= Slide FM 4 : GPT applications =================
+\begin{frame}{Applications des LLM}
+\begin{itemize}
+  \item Dialogue (ChatGPT, assistants IA)
+  \item Traduction, résumé, génération de texte
+  \item Génération de code (Copilot, Code Llama)
+  \item Raisonnement scientifique et mathématique
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 5 : Stable Diffusion =================
+\begin{frame}{Stable Diffusion : principe}
+\begin{itemize}
+  \item Latent Diffusion Model (LDM)
+  \item Applique la diffusion dans un espace latent compressé
+  \item Conditionné par du texte via CLIP embeddings
+\end{itemize}
+\[
+z_0 \xrightarrow{\text{diffusion inverse}} z_T \quad \to \quad \text{decode}(z_T) \approx \text{image générée}
+\]
+\end{frame}
+
+%================= Slide FM 6 : Applications IA générative =================
+\begin{frame}{Applications IA générative}
+\begin{itemize}
+  \item Texte $\to$ image (Stable Diffusion, DALL·E)
+  \item Image $\to$ image (inpainting, style transfer)
+  \item Texte $\to$ vidéo (Sora, Pika)
+  \item Multimodalité (texte $\leftrightarrow$ audio, 3D, simulation)
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 7 : Liens avec diffusion =================
+\begin{frame}{Lien Diffusion $\leftrightarrow$ Modèles Fondations}
+\begin{itemize}
+  \item Les LDM (Stable Diffusion) combinent :
+    \begin{itemize}
+      \item Encodeur VAE pour espace latent
+      \item Diffusion pour génération
+      \item Conditionnement par un LLM/CLIP
+    \end{itemize}
+  \item Exemples : texte $\to$ image réaliste en quelques secondes
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 8 : Défis actuels =================
+\begin{frame}{Défis des Modèles Fondations}
+\begin{itemize}
+  \item Coût d’entraînement (centaines de GPU, mois de calcul)
+  \item Biais et toxicité hérités des données
+  \item Contrôle et interprétabilité
+  \item Durabilité énergétique
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 9 : Impact sociétal =================
+\begin{frame}{Impact sociétal}
+\begin{itemize}
+  \item Révolution de la productivité (IA copilote)
+  \item Transformation de la recherche et de l’éducation
+  \item Questions éthiques et juridiques (plagiat, droits d’auteur)
+  \item Vers des IA généralistes (AGI ?)
+\end{itemize}
+\end{frame}
+
+%================= Slide FM 10 : Synthèse =================
+\begin{frame}{Synthèse : Modèles Fondations}
+\begin{itemize}
+  \item Entraînement massif sur données génériques
+  \item Réutilisables pour de multiples tâches
+  \item Exemples : GPT (texte), Stable Diffusion (images)
+  \item Défis : coût, biais, contrôle, énergie
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : GPT et modèles fondation =================
+\begin{frame}{Modèles fondation : GPT}
+\begin{itemize}
+  \item Transformer autoregressif
+  \item Pré-entraînement sur large corpus : langage, code, texte-image
+  \item Génération séquentielle : $x_t \sim p_\theta(x_t | x_{<t})$
+  \item Applications : texte, code, multimodal (image+texte)
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Transformer attention =================
+\begin{frame}{Transformer : attention mechanism}
+\[
+  \text{Attention}(Q,K,V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right) V
+\]
+\begin{itemize}
+  \item Q = queries, K = keys, V = values
+  \item Permet de capturer dépendances longues dans la séquence
+  \item Base de GPT, Stable Diffusion (cross attention)
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Diffusion vs GAN vs VAE =================
+\begin{frame}{Diffusion vs GAN vs VAE}
+\begin{tabular}{|l|c|c|c|}
+\hline
+Modèle & Stabilité & Qualité & Complexité \\
+\hline
+VAE & élevée & moyenne & faible \\
+GAN & faible & élevée & moyenne \\
+Diffusion & élevée & élevée & élevée \\
+\hline
+\end{tabular}
+\begin{itemize}
+  \item Diffusion models : stable, génératif haute qualité
+  \item GAN : rapide, mais instable
+  \item VAE : stable, latent interpretable, mais blurry
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 à 30 : Cas pratiques, schémas, exercices =================
+\begin{frame}{Exemple pratique : Diffusion sur MNIST}
+\begin{itemize}
+  \item Forward noising : ajouter bruit progressif aux images
+  \item Reverse denoising : prédire le bruit à chaque timestep
+  \item Visualiser évolution image : de bruit → chiffre clair
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : implémentation U-Net}
+\begin{itemize}
+  \item Construire un U-Net simple
+  \item Conditionner sur timestep $t$
+  \item Entraîner sur MNIST ou FashionMNIST
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : Stable Diffusion mini-projet}
+\begin{itemize}
+  \item Text-to-image simple
+  \item Préparer embeddings texte
+  \item Observer influence du prompt sur génération
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : visualiser score-based diffusion}
+\begin{itemize}
+  \item Implémenter forward/noise process sur 2D toy dataset
+  \item Visualiser les trajectoires de reverse process
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exemple multimodal}
+\begin{itemize}
+  \item Texte → image (Stable Diffusion)
+  \item Image → image (inpainting)
+  \item Comparer qualité génération vs GAN classique
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice : comparaison VAE / GAN / Diffusion}
+\begin{itemize}
+  \item Générer échantillons pour chaque modèle
+  \item Comparer qualité, diversité, stabilité
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : génération molécules}
+\begin{itemize}
+  \item Forward process : ajouter bruit aux positions atomiques
+  \item Reverse process : prédire positions correctes
+  \item Objectif : molécules valides
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé sous-section 2}
+\begin{itemize}
+  \item Diffusion models : forward noise + reverse denoising
+  \item Stable Diffusion : text-to-image, embeddings textuels
+  \item GPT : autoregressive transformer
+  \item Diffusion > GAN/VAE en stabilité et qualité
+  \item Exercices : implémentation U-Net, visualisation forward/reverse
+\end{itemize}
+\end{frame}
+
+
+\subsection{ 5.3 Liens avec l’optimisation (score-based models, transport optimal)} 
+\begin{frame}{Liens avec l’optimisation (score-based models, transport optimal) : plan}
+\begin{itemize}
+  \item Score-based generative modeling : définition et intuition
+  \item Relation avec gradient de log-densité
+  \item Optimisation stochastique et Langevin dynamics
+  \item Transport optimal : distance Wasserstein et applications
+  \item Relation OT / diffusion models
+  \item Algorithmes : Sinkhorn, OT régularisé
+  \item Génération guidée par transport optimal
+  \item Exemples : transfert de style, morphing de distributions
+  \item Exos
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 1 : Introduction =================
+\begin{frame}{IA générative et optimisation}
+\begin{itemize}
+  \item Beaucoup de modèles génératifs peuvent être vus comme des problèmes d’optimisation.
+  \item Deux liens majeurs :
+    \begin{enumerate}
+      \item Modèles basés sur le score (score-based generative models)
+      \item Transport optimal et distances de Wasserstein
+    \end{enumerate}
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 2 : Score matching =================
+\begin{frame}{Score matching : principe}
+\begin{itemize}
+  \item Idée : apprendre le gradient du log de densité $\nabla_x \log p(x)$
+  \item Approche introduite par Hyvärinen (2005)
+  \item Fonction de coût :
+  \[
+  \mathcal{L}(\theta) = \mathbb{E}_{x \sim p_{data}}
+   \left[ \frac{1}{2} \| s_\theta(x) - \nabla_x \log p(x) \|^2 \right]
+  \]
+  où $s_\theta(x)$ est le réseau de score.
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 3 : Génération par score =================
+\begin{frame}{De score matching à génération}
+\begin{itemize}
+  \item Si on connaît le score $\nabla_x \log p(x)$, on peut générer via Langevin dynamics :
+  \[
+  x_{t+1} = x_t + \eta \, s_\theta(x_t) + \sqrt{2\eta}\,\epsilon_t
+  \]
+  \item Procédé stochastique qui converge vers la distribution $p(x)$
+  \item Base des modèles de diffusion actuels
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 4 : Diffusion et score =================
+\begin{frame}{Lien diffusion -- score}
+\begin{itemize}
+  \item Modèles de diffusion = apprentissage du score à chaque niveau de bruit
+  \item Score network : $s_\theta(x,t) \approx \nabla_x \log p_t(x)$
+  \item Génération = résolution d’une équation différentielle stochastique (SDE)
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 5 : Transport optimal =================
+\begin{frame}{Transport optimal : idée générale}
+\begin{itemize}
+  \item Problème : comment transformer une distribution $\mu$ en une autre $\nu$ au coût minimal ?
+  \item Distance de Wasserstein $W_c(\mu,\nu)$ :
+  \[
+  W_c(\mu,\nu) = \inf_{\gamma \in \Pi(\mu,\nu)} \int c(x,y)\, d\gamma(x,y)
+  \]
+  où $\Pi(\mu,\nu)$ = couplages de $\mu$ et $\nu$.
+  \item Coût typique : $c(x,y) = \|x-y\|^2$
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 6 : Interprétation géométrique =================
+\begin{frame}{Distance de Wasserstein : interprétation}
+\begin{itemize}
+  \item Vue comme « effort de transport » pour transformer une distribution en une autre.
+  \item Structure géométrique sur l’espace des mesures de probabilité.
+  \item Fournit un cadre naturel pour l’IA générative.
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 7 : GAN et Wasserstein =================
+\begin{frame}{Wasserstein GAN (WGAN)}
+\begin{itemize}
+  \item Amélioration des GAN classiques par distance Wasserstein
+  \item Critère d’entraînement :
+  \[
+  \min_G \max_{D \in \text{Lip}(1)} \mathbb{E}_{x \sim p_{data}}[D(x)] - \mathbb{E}_{z \sim p(z)}[D(G(z))]
+  \]
+  \item Donne gradients plus stables et convergence meilleure
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 8 : Optimal transport et diffusion =================
+\begin{frame}{Optimal transport et diffusion}
+\begin{itemize}
+  \item Les modèles de diffusion peuvent être vus comme un chemin optimal entre distributions
+  \item Lien avec la formulation de Schrödinger bridge (transport stochastique)
+  \item Apporte une vision unifiée entre diffusion et transport optimal
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 9 : Applications =================
+\begin{frame}{Applications IA générative}
+\begin{itemize}
+  \item Génération d’images : WGAN, diffusion models
+  \item Modélisation moléculaire : transport optimal pour aligner distributions
+  \item Simulation physique : apprentissage de dynamiques via score matching
+\end{itemize}
+\end{frame}
+
+%================= Slide OPT 10 : Synthèse =================
+\begin{frame}{Synthèse : IA générative et optimisation}
+\begin{itemize}
+  \item Score matching : apprentissage du gradient de log densité
+  \item Transport optimal : géométrie des distributions
+  \item Modèles modernes = combinaison des deux (diffusion, Schrödinger bridge, WGAN)
+\end{itemize}
+\end{frame}
+
+%================= Slide 1 : Motivation =================
+\begin{frame}{Motivation : optimisation et IA générative}
+\begin{itemize}
+  \item Générer des données réalistes nécessite d’optimiser sur la distribution cible
+  \item Score-based models et transport optimal offrent une formulation géométrique et mathématiquement solide
+  \item Applications : diffusion guided generation, morphing, transfert de style
+\end{itemize}
+\end{frame}
+
+%================= Slide 2 : Score-based generative modeling =================
+\begin{frame}{Score-based generative modeling}
+\begin{itemize}
+  \item Score : gradient log-densité de la distribution
+  \[
+    s_\theta(x) = \nabla_x \log p_\theta(x)
+  \]
+  \item Modèle entraîne $s_\theta(x)$ sur données bruitées
+  \item Génération via Langevin dynamics :
+  \[
+    x_{t+1} = x_t + \frac{\eta}{2} s_\theta(x_t) + \sqrt{\eta} \epsilon_t
+  \]
+\end{itemize}
+\end{frame}
+
+%================= Slide 3 : Forward / reverse =================
+\begin{frame}{Forward / Reverse Dynamics}
+\begin{itemize}
+  \item Forward : ajouter bruit progressif (diffusion)
+  \item Reverse : enlever bruit via score-based update
+  \item Connection : score-based models = continuous limit de diffusion models
+\end{itemize}
+\end{frame}
+
+%================= Slide 4 : Langevin dynamics =================
+\begin{frame}{Langevin dynamics pour génération}
+\begin{itemize}
+  \item Discrétisation Euler-Maruyama
+  \[
+    x_{t+1} = x_t + \frac{\eta}{2} s_\theta(x_t) + \sqrt{\eta} \epsilon_t
+  \]
+  \item $\epsilon_t \sim \mathcal{N}(0,I)$
+  \item $\eta$ : step size
+  \item Permet sampling à partir de $p_\theta(x)$
+\end{itemize}
+\end{frame}
+
+%================= Slide 5 : Transport optimal =================
+\begin{frame}{Transport optimal et génération}
+\begin{itemize}
+  \item Comparer distributions $\mu$ et $\nu$
+  \item Distance de Wasserstein :
+  \[
+    W_p(\mu,\nu) = \left( \inf_{\gamma \in \Pi(\mu,\nu)} \int \|x-y\|^p d\gamma(x,y) \right)^{1/p}
+  \]
+  \item Génération guidée : rapprocher distribution générée $p_\theta$ de $p_\text{data}$ en OT
+\end{itemize}
+\end{frame}
+
+%================= Slide 6 : Sinkhorn =================
+\begin{frame}{Sinkhorn algorithm pour OT régularisé}
+\begin{itemize}
+  \item OT régularisé entropiquement :
+  \[
+    \min_\gamma \int c(x,y) d\gamma + \epsilon \mathrm{KL}(\gamma||\mu\otimes\nu)
+  \]
+  \item Sinkhorn iterations pour calcul efficace
+  \item Applications : transfert de style, morphing distributions
+\end{itemize}
+\end{frame}
+
+%================= Slide 7 : Score + OT =================
+\begin{frame}{Combinaison score-based + OT}
+\begin{itemize}
+  \item Score-based : optimiser densité locale
+  \item OT : optimiser distance globale entre distributions
+  \item Ensemble : génération stable et réaliste
+\end{itemize}
+\end{frame}
+
+%================= Slide 8 : Exercice 1 =================
+\begin{frame}{Exercice : score-based sampling}
+\begin{itemize}
+  \item Implémenter Langevin dynamics sur dataset 2D toy
+  \item Visualiser convergence vers distribution cible
+\end{itemize}
+\end{frame}
+
+%================= Slide 9 : Exercice 2 =================
+\begin{frame}{Exercice : OT régularisé}
+\begin{itemize}
+  \item Calculer Wasserstein distance entre deux distributions 2D
+  \item Implémenter Sinkhorn iterations
+  \item Visualiser plan de transport optimal
+\end{itemize}
+\end{frame}
+
+%================= Slide 10 : Exercice 3 =================
+\begin{frame}{Exercice : combinaison Score + OT}
+\begin{itemize}
+  \item Générer des points avec score-based Langevin
+  \item Régulariser avec plan OT vers distribution cible
+  \item Observer effet sur distribution finale
+\end{itemize}
+\end{frame}
+
+%================= Slide 11 : Applications =================
+\begin{frame}{Applications IA générative + OT}
+\begin{itemize}
+  \item Image : morphing, style transfer
+  \item Texte → texte / image → image : distribution matching
+  \item Physique : génération molécules, particules simulées
+\end{itemize}
+\end{frame}
+
+%================= Slide 12 : Diffusion guided by OT =================
+\begin{frame}{Diffusion models guidés par OT}
+\begin{itemize}
+  \item Reverse diffusion avec penalité Wasserstein
+  \item Objectif : préserver structure globale des données
+  \item Meilleure fidélité distributionnelle
+\end{itemize}
+\end{frame}
+
+%================= Slide 13 : Visualisation =================
+\begin{frame}{Visualisation : Score-based + OT}
+\begin{itemize}
+  \item Points initiaux : bruit
+  \item Reverse process : Langevin dynamics
+  \item OT reg. : rapprochement distribution cible
+  \item Schéma : trajectoires convergentes
+\end{itemize}
+\end{frame}
+
+%================= Slide 14 à 30 : Cas pratiques, exercices avancés =================
+\begin{frame}{Exercice avancé 1 : Morphing distributions}
+\begin{itemize}
+  \item Générer distribution A → B
+  \item Utiliser score-based update + OT regularization
+  \item Visualiser trajectoires
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice avancé 2 : Transfert de style images}
+\begin{itemize}
+  \item Dataset source : MNIST
+  \item Dataset target : FashionMNIST
+  \item Génération guidée par score + OT
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercice avancé 3 : Score-based diffusion sur molécules}
+\begin{itemize}
+  \item Forward process sur positions atomiques
+  \item Reverse process avec score-based Langevin
+  \item OT pour rapprocher distribution moléculaire cible
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : comparaison avec GAN et VAE}
+\begin{itemize}
+  \item Visualiser qualité et diversité
+  \item Observer stabilité des modèles score-based + OT
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Mini-cas : visualisation trajectoires}
+\begin{itemize}
+  \item Forward : diffusion du bruit
+  \item Reverse : score-based update
+  \item OT : ajustement global
+  \item Observer convergence distribution cible
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Résumé Sous-section 3}
+\begin{itemize}
+  \item Score-based generative models : gradient log-densité, Langevin dynamics
+  \item Transport optimal : Wasserstein, Sinkhorn
+  \item Combinaison : génération stable, fidèle à distribution cible
+  \item Applications : morphing, style transfer, diffusion guided, molécules
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Transition vers synthèse du module IA générative}
+\begin{itemize}
+  \item Récapitulatif :
+    \begin{itemize}
+      \item Modèles classiques : VAE, GAN, Flows
+      \item Modèles diffusion et fondation : Stable Diffusion, GPT
+      \item Optimisation avancée : score-based + OT
+    \end{itemize}
+  \item Module complet : théorie, mathématiques, applications, exercices
+\end{itemize}
+\end{frame}
+
+
+%================= Slide finale : Synthèse Module IA générative =================
+\begin{frame}{Synthèse du module : IA générative}
+\begin{itemize}
+  \item \textbf{Modèles classiques : VAE, GAN, Flows}
+    \begin{itemize}
+      \item VAE : latent continu, ELBO, reconstruction
+      \item GAN : générateur/adversaire, échantillons réalistes mais instables
+      \item Flows : transformations bijectives, likelihood exacte
+    \end{itemize}
+  \item \textbf{Diffusion models et modèles fondation}
+    \begin{itemize}
+      \item Forward noise + reverse denoising
+      \item Stable Diffusion : text-to-image, embeddings textuels
+      \item GPT : autoregressive Transformer
+    \end{itemize}
+  \item \textbf{Optimisation avancée et génération guidée}
+    \begin{itemize}
+      \item Score-based models : gradient log-densité, Langevin dynamics
+      \item Transport optimal : Wasserstein distance, Sinkhorn iterations
+      \item Combinaison score + OT : génération stable et fidèle à la distribution cible
+    \end{itemize}
+  \item \textbf{Applications}
+    \begin{itemize}
+      \item Images, audio, texte, molécules, style transfer
+      \item Études de cas et exercices pratiques pour compréhension et visualisation
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%================= Slide de transition vers modules suivants =================
+\begin{frame}{Prochaines étapes}
+\begin{itemize}
+  \item Intégration des concepts de géométrie des données et IA générative
+  \item Exploration avancée :
+    \begin{itemize}
+      \item Deep learning géométrique (GNN, graphes et variétés)
+      \item Applications scientifiques et industrielles
+    \end{itemize}
+  \item Projet final : combinaison théorie + implémentation + visualisation
+\end{itemize}
+\end{frame}
+
+\end{document}
+
+
