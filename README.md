@@ -1,28 +1,68 @@
 # TR-Data-Soph.IA
 
-Ce répertoire contient le cours, les notes, les TPs et les slides pour le module "Géométrie des Données et Apprentissage sur Variétés".
+Ce dépôt contient le matériel du module "Géométrie des Données et Apprentissage sur Variétés" : notes, slides et notebooks de TP.
 
-## Structure
+## Structure du dépôt
 
-- `notes/` : Notes de cours LaTeX
-- `labs/` : Notebooks Jupyter pour les travaux pratiques
-- `lectures/` : Slides LaTeX et images
-- `.vscode/` : Configuration VSCode
-- `.conda/` : Environnement Conda (à ne pas versionner)
+- `notes/` : sources LaTeX des notes de cours (peuvent être exclues du dépôt public)
+- `labs/` : notebooks Jupyter pour les travaux pratiques (ex : `TP5_GNN_message_passing.ipynb`, `TP1_MNIST_structure.ipynb`)
+- `lectures/` : sources LaTeX et slides (fichiers compilés et images)
+- `.vscode/` : configuration VSCode
+- `.conda/` : environnement Conda local (ne pas versionner)
 
-## Pour compiler les slides ou les notes
+Note : certains dossiers (par ex. `lectures/tex/`, `labs/sol/`, `notes/`) sont listés dans `.gitignore` pour éviter de publier des corrigés ou fichiers volumineux.
 
-```bash
+## Exemples de notebooks
+
+- `labs/graphe_knn_epsilon.ipynb` : génération et visualisation de graphes k-NN et epsilon, propagation de labels, sauvegarde d'images.
+- `labs/TP1_MNIST_corrige.ipynb` : exemples de réduction de dimension (PCA, Isomap, Diffusion Maps, t-SNE) sur MNIST.
+
+## Environnement Python (Conda)
+
+Un environnement Conda local a été configuré pour le projet (chemin projet : `.conda`). Pour l'activer sous PowerShell :
+
+```powershell
+conda activate "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda"
+```
+
+Si l'environnement n'existe pas sur votre machine, vous pouvez le créer avec (optionnel) :
+
+```powershell
+conda create -p "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda" python=3.11
+conda activate "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda"
+```
+
+Installer les dépendances utiles pour les notebooks :
+
+```powershell
+conda install numpy matplotlib scikit-learn networkx -y
+# ou pip install -r requirements.txt si vous préférez pip
+```
+
+## Compiler les slides / notes
+
+Une distribution LaTeX est nécessaire (MiKTeX ou TeX Live). Exemple de commande pour compiler les slides depuis `lectures/` :
+
+```powershell
 cd lectures
 pdflatex main.tex
 ```
 
-## Pour exécuter les TPs
-Ouvrir les notebooks dans Jupyter ou VSCode.
+Remarque : Si `pdflatex` n'est pas installé, installez MiKTeX (https://miktex.org) ou TeX Live.
 
-## Recommandations
-- Ne pas versionner les fichiers PDF, log, ou temporaires (voir `.gitignore`).
-- Les images générées par les TPs sont dans `lectures/`.
+## Exécution des notebooks
 
-## Auteur
+Ouvrez les notebooks depuis Jupyter (`jupyter lab` / `jupyter notebook`) ou dans VSCode. Les images générées par les notebooks sont sauvegardées localement (voir cellules qui enregistrent PNG dans `labs/`).
+
+## Git / Publication
+
+Si vous modifiez le README et souhaitez pousser les changements vers GitHub (si Git est configuré) :
+
+```powershell
+git add README.md
+git commit -m "Mise à jour du README pour refléter le contenu du dépôt"
+git push origin master
+```
+
+## Contact
 Youssef MESRI - MINES Paris - PSL
