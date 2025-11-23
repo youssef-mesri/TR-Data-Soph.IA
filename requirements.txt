@@ -1,0 +1,19 @@
+# Requirements for running the notebooks in this repository
+# Minimal recommended versions (adjust if needed)
+numpy>=1.24
+matplotlib>=3.6
+scikit-learn>=1.2
+networkx>=3.0
+scipy>=1.10
+pandas>=1.5
+jupyterlab>=3.0
+ipykernel
+
+# Optional / advanced
+# pygsp (graph signal processing, used in some examples)
+pygsp
+# PyTorch and related (only if you use torch/graph libraries in labs)
+torch
+torch-geometric
+
+# If you prefer conda, install equivalents with `conda install`
