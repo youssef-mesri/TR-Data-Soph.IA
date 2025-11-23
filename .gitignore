@@ -27,3 +27,5 @@ Thumbs.db
 # Other
 *.bak
 *.tmp
+lectures/tex/
+labs/sol/
