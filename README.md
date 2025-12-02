@@ -1,14 +1,11 @@
 # TR-Data-Soph.IA
 
-Ce dépôt contient le matériel du module "Géométrie des Données et Apprentissage sur Variétés" : notes, slides et notebooks de TP.
+Ce dépôt contient le matériel des modules "Géométrie des Données et Apprentissage sur Variétés" et "IA Générative" : Lectures et notebooks de TPs.
 
 ## Structure du dépôt
 
-- `notes/` : sources LaTeX des notes de cours (peuvent être exclues du dépôt public)
 - `labs/` : notebooks Jupyter pour les travaux pratiques (ex : `TP5_GNN_message_passing.ipynb`, `TP1_MNIST_structure.ipynb`)
-- `lectures/` : sources LaTeX et slides (fichiers compilés et images)
-- `.vscode/` : configuration VSCode
-- `.conda/` : environnement Conda local (ne pas versionner)
+- `lectures/` : lecture_1.pdf, lecture_2.pdf et lecture_3.pdf sont associés au module "Géométrie des Données et Apprentissage sur Variétés"  et lecture_5.pdf est associé au module "IA Générative"
 
 Note : certains dossiers (par ex. `lectures/tex/`, `labs/sol/`, `notes/`) sont listés dans `.gitignore` pour éviter de publier des corrigés ou fichiers volumineux.
 
@@ -39,30 +36,9 @@ conda install numpy matplotlib scikit-learn networkx -y
 # ou pip install -r requirements.txt si vous préférez pip
 ```
 
-## Compiler les slides / notes
-
-Une distribution LaTeX est nécessaire (MiKTeX ou TeX Live). Exemple de commande pour compiler les slides depuis `lectures/` :
-
-```powershell
-cd lectures
-pdflatex main.tex
-```
-
-Remarque : Si `pdflatex` n'est pas installé, installez MiKTeX (https://miktex.org) ou TeX Live.
-
 ## Exécution des notebooks
 
 Ouvrez les notebooks depuis Jupyter (`jupyter lab` / `jupyter notebook`) ou dans VSCode. Les images générées par les notebooks sont sauvegardées localement (voir cellules qui enregistrent PNG dans `labs/`).
-
-## Git / Publication
-
-Si vous modifiez le README et souhaitez pousser les changements vers GitHub (si Git est configuré) :
-
-```powershell
-git add README.md
-git commit -m "Mise à jour du README pour refléter le contenu du dépôt"
-git push origin master
-```
 
 ## Contact
 Youssef MESRI - MINES Paris - PSL
