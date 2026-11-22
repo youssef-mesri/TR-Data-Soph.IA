@@ -1,44 +1,46 @@
 # TR-Data-Soph.IA
 
-Ce dépôt contient le matériel des modules "Géométrie des Données et Apprentissage sur Variétés" et "IA Générative" : Lectures et notebooks de TPs.
+Ce dépôt contient le matériel des modules « Géométrie des Données et Apprentissage sur Variétés » et « IA Générative » : slides des lectures (PDF) et notebooks de TP.
 
 ## Structure du dépôt
 
-- `labs/` : notebooks Jupyter pour les travaux pratiques (ex : `TP5_GNN_message_passing.ipynb`, `TP1_MNIST_structure.ipynb`)
-- `lectures/` : lecture_1.pdf, lecture_2.pdf et lecture_3.pdf sont associés au module "Géométrie des Données et Apprentissage sur Variétés"  et lecture_5.pdf est associé au module "IA Générative"
+- `lectures/pdf/` : slides des lectures
+- `labs/` : notebooks Jupyter des travaux pratiques (énoncés)
 
-Note : certains dossiers (par ex. `lectures/tex/`, `labs/sol/`, `notes/`) sont listés dans `.gitignore` pour éviter de publier des corrigés ou fichiers volumineux.
+| Lecture | Thème |
+|---|---|
+| `lecture_1.pdf` | Introduction à la géométrie des données : concentration, variétés, PCA, Isomap, Diffusion Maps, t-SNE, UMAP (démonstrations en annexe) |
+| `lecture_2.pdf` | Graphes et diffusion : Laplacien, noyau de chaleur, semi-supervisé, Cheeger, courbure |
+| `lecture_3.pdf` | Deep learning sur graphes et variétés : passage de messages, GCN, GAT, WL, sur-lissage, équivariance |
+| `lecture_4.pdf` | Topologie des données, variétés riemanniennes, transport optimal |
+| `lecture_5.pdf` | IA générative : VAE, GAN, flows, diffusion, flow matching |
+| `lecture_6.pdf` | Géométrie des représentations apprises, mini-projets |
 
-## Exemples de notebooks
+## Travaux pratiques
 
-- `labs/graphe_knn_epsilon.ipynb` : génération et visualisation de graphes k-NN et epsilon, propagation de labels, sauvegarde d'images.
-- `labs/TP1_MNIST_corrige.ipynb` : exemples de réduction de dimension (PCA, Isomap, Diffusion Maps, t-SNE) sur MNIST.
+| TP | Lecture | Notebook (`labs/`) |
+|---|---|---|
+| TP0 | 1 | `TP0_Lecture_1_concentration_structure.ipynb` : concentration des distances |
+| TP1 | 1 | `TP1_Lecture_1_MNIST_structure.ipynb` : PCA, Isomap, Diffusion Maps, t-SNE sur MNIST |
+| TP2 | 1 | `TP2_Lecture_1_SwissRoll_structure.ipynb` : déroulement d'une variété |
+| TP3 | 1 | `TP3_Lecture_1_parametres_structure.ipynb` : paramètres et robustesse |
+| TP | 2 | `TP_Lecture_2_Graphes_Diffusion_structure.ipynb` : Laplacien, diffusion, semi-supervisé, segmentation |
+| TP | 3 | `TP_Lecture_3_GNN_message_passing.ipynb` : passage de messages, GCN/GAT sur Cora, sur-lissage, WL |
+| TP | 5 | `TP_Lecture_5_Generative_Models.ipynb` : VAE, GAN, RealNVP, DDPM |
 
-## Environnement Python (Conda)
+`labs/graphe_knn_epsilon.ipynb` est une démonstration (graphes k-NN et ε, propagation de labels) qui produit les figures de la lecture 2.
 
-Un environnement Conda local a été configuré pour le projet (chemin projet : `.conda`). Pour l'activer sous PowerShell :
+## Installation
 
-```powershell
-conda activate "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda"
+```bash
+pip install -r requirements.txt
 ```
 
-Si l'environnement n'existe pas sur votre machine, vous pouvez le créer avec (optionnel) :
-
-```powershell
-conda create -p "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda" python=3.11
-conda activate "c:\local\ymesri\TR-Data Soph.IA\TR-Data-Soph.IA\.conda"
-```
-
-Installer les dépendances utiles pour les notebooks :
-
-```powershell
-conda install numpy matplotlib scikit-learn networkx -y
-# ou pip install -r requirements.txt si vous préférez pip
-```
+Sous Windows, si PyTorch et scikit-learn chargent deux runtimes OpenMP, définir `KMP_DUPLICATE_LIB_OK=TRUE` (voir `requirements.txt`).
 
 ## Exécution des notebooks
 
-Ouvrez les notebooks depuis Jupyter (`jupyter lab` / `jupyter notebook`) ou dans VSCode. Les images générées par les notebooks sont sauvegardées localement (voir cellules qui enregistrent PNG dans `labs/`).
+Ouvrez les notebooks avec Jupyter (`jupyter lab`) ou dans VSCode. Les jeux de données (MNIST, Cora) sont téléchargés automatiquement au premier lancement.
 
 ## Contact
 Youssef MESRI - MINES Paris - PSL

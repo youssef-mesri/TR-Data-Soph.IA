@@ -1,16 +1,22 @@
-# Requirements for running the notebooks in this repository
-# Minimal recommended versions (adjust if needed)
+# Dépendances des notebooks de TP (labs/)
+# Versions minimales testées : TP exécutés avec numpy 2, scipy 1.16, scikit-learn 1.7, torch 2.9 (CPU), torch-geometric 2.7
 numpy>=1.24
-matplotlib>=3.6
-scikit-learn>=1.2
-networkx>=3.0
 scipy>=1.10
-pandas>=1.5
+matplotlib>=3.6
+scikit-learn>=1.2          # MNIST est chargé via sklearn.datasets.fetch_openml (pas besoin de torchvision)
+scikit-image>=0.21         # TP4 : segmentation d'image
+networkx>=3.0              # TP5 : dessin de petits graphes
 jupyterlab>=3.0
 ipykernel
 
-# PyTorch and related (only if you use torch/graph libraries in labs)
-torch
-torch-geometric
+# Modules 3 et 5 (GNN, modèles génératifs)
+torch>=2.0
+torch-geometric>=2.4
 
-# If you prefer conda, install equivalents with `conda install`
+# Module 4 (TP topologie / transport optimal, si utilisé)
+# gudhi
+# pot
+
+# Remarque Windows/conda : si le noyau plante avec « OMP: Error #15 (libiomp5md.dll already initialized) »,
+# c'est un conflit entre les runtimes OpenMP de torch et de numpy (MKL). Solution propre : installer torch et numpy
+# depuis le même canal ; contournement : définir la variable d'environnement KMP_DUPLICATE_LIB_OK=TRUE.
